@@ -1,0 +1,1495 @@
+fileFormatVersion: 2
+guid: 2803967294994f02280408e22384f990
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 1536996641685361034
+    second: erasebg-transformed_0
+  - first:
+      213: 1108315334394538923
+    second: erasebg-transformed_1
+  - first:
+      213: -228710743714197807
+    second: erasebg-transformed_2
+  - first:
+      213: -6430408527534854519
+    second: erasebg-transformed_3
+  - first:
+      213: -6621485674010474988
+    second: erasebg-transformed_4
+  - first:
+      213: -4705107138985097465
+    second: erasebg-transformed_5
+  - first:
+      213: 4165935194899390284
+    second: erasebg-transformed_6
+  - first:
+      213: -975052797340606253
+    second: erasebg-transformed_7
+  - first:
+      213: -881386968765379087
+    second: erasebg-transformed_8
+  - first:
+      213: -2722060147758008080
+    second: erasebg-transformed_9
+  - first:
+      213: -5114488592208321294
+    second: erasebg-transformed_10
+  - first:
+      213: -3920447075428271043
+    second: erasebg-transformed_11
+  - first:
+      213: 6729991130750531169
+    second: erasebg-transformed_12
+  - first:
+      213: -2915414650315009847
+    second: erasebg-transformed_13
+  - first:
+      213: 2294618663748447163
+    second: erasebg-transformed_14
+  - first:
+      213: -8271121013228813877
+    second: erasebg-transformed_15
+  - first:
+      213: -7461157384463759436
+    second: erasebg-transformed_16
+  - first:
+      213: -1532236305417180122
+    second: erasebg-transformed_17
+  - first:
+      213: -3199882060502202015
+    second: erasebg-transformed_18
+  - first:
+      213: -6738073299084897501
+    second: erasebg-transformed_19
+  - first:
+      213: -8849832762039969493
+    second: erasebg-transformed_20
+  - first:
+      213: 2539074222951250948
+    second: erasebg-transformed_21
+  - first:
+      213: 1759841306592190196
+    second: erasebg-transformed_22
+  - first:
+      213: 3591761510503794190
+    second: erasebg-transformed_23
+  - first:
+      213: -982270874962003442
+    second: erasebg-transformed_24
+  - first:
+      213: 7819370842022958967
+    second: erasebg-transformed_25
+  - first:
+      213: -735407337363056298
+    second: erasebg-transformed_26
+  - first:
+      213: -2218861038810374530
+    second: erasebg-transformed_27
+  - first:
+      213: 3563055189156167072
+    second: erasebg-transformed_28
+  - first:
+      213: -1897703941411418255
+    second: erasebg-transformed_29
+  - first:
+      213: 3301508252646340430
+    second: erasebg-transformed_30
+  - first:
+      213: -6871050278933290138
+    second: erasebg-transformed_31
+  - first:
+      213: 2497324228715791204
+    second: erasebg-transformed_32
+  - first:
+      213: -7890951515505520555
+    second: erasebg-transformed_33
+  - first:
+      213: -2319881299694714468
+    second: erasebg-transformed_34
+  - first:
+      213: -2455364952400418618
+    second: erasebg-transformed_35
+  - first:
+      213: -3777529213067077621
+    second: erasebg-transformed_36
+  - first:
+      213: -5608206959439907884
+    second: erasebg-transformed_37
+  - first:
+      213: 7666915646795135354
+    second: erasebg-transformed_38
+  - first:
+      213: 634199735031933502
+    second: erasebg-transformed_39
+  - first:
+      213: 5222828135130145774
+    second: erasebg-transformed_40
+  - first:
+      213: -9046575743035508232
+    second: erasebg-transformed_41
+  - first:
+      213: 6593964635116282862
+    second: erasebg-transformed_42
+  - first:
+      213: 5836010758337713677
+    second: erasebg-transformed_43
+  - first:
+      213: -3785127603408448015
+    second: erasebg-transformed_44
+  - first:
+      213: -3398550030447681621
+    second: erasebg-transformed_45
+  - first:
+      213: -3088644780198692274
+    second: erasebg-transformed_46
+  - first:
+      213: 6031026405097586805
+    second: erasebg-transformed_47
+  - first:
+      213: 2993755976612492830
+    second: erasebg-transformed_48
+  - first:
+      213: -7602858263261779343
+    second: erasebg-transformed_49
+  - first:
+      213: 3096961876714587454
+    second: erasebg-transformed_50
+  - first:
+      213: -2514531716784773370
+    second: erasebg-transformed_51
+  - first:
+      213: 1817475799650455583
+    second: erasebg-transformed_52
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: erasebg-transformed_0
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 804
+        width: 109
+        height: 113
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a81df906d42845510800000000000000
+      internalID: 1536996641685361034
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_1
+      rect:
+        serializedVersion: 2
+        x: 167
+        y: 794
+        width: 101
+        height: 152
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bab64bdace6816f00800000000000000
+      internalID: 1108315334394538923
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_2
+      rect:
+        serializedVersion: 2
+        x: 289
+        y: 811
+        width: 173
+        height: 115
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1de89945ac473dcf0800000000000000
+      internalID: -228710743714197807
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_3
+      rect:
+        serializedVersion: 2
+        x: 483
+        y: 810
+        width: 177
+        height: 119
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 98e64a3938992c6a0800000000000000
+      internalID: -6430408527534854519
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_4
+      rect:
+        serializedVersion: 2
+        x: 687
+        y: 793
+        width: 186
+        height: 155
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 41684439cd1cb14a0800000000000000
+      internalID: -6621485674010474988
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_5
+      rect:
+        serializedVersion: 2
+        x: 22
+        y: 682
+        width: 103
+        height: 84
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 70783ae5cf914beb0800000000000000
+      internalID: -4705107138985097465
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_6
+      rect:
+        serializedVersion: 2
+        x: 135
+        y: 682
+        width: 104
+        height: 85
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c4f9649dcff50d930800000000000000
+      internalID: 4165935194899390284
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_7
+      rect:
+        serializedVersion: 2
+        x: 248
+        y: 682
+        width: 106
+        height: 84
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3d0234995aae772f0800000000000000
+      internalID: -975052797340606253
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_8
+      rect:
+        serializedVersion: 2
+        x: 358
+        y: 681
+        width: 105
+        height: 84
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1fdc411c83fa4c3f0800000000000000
+      internalID: -881386968765379087
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_9
+      rect:
+        serializedVersion: 2
+        x: 473
+        y: 681
+        width: 108
+        height: 87
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0f8f2abb7bc493ad0800000000000000
+      internalID: -2722060147758008080
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_10
+      rect:
+        serializedVersion: 2
+        x: 595
+        y: 657
+        width: 125
+        height: 126
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2f4a2ad19bfa509b0800000000000000
+      internalID: -5114488592208321294
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_11
+      rect:
+        serializedVersion: 2
+        x: 730
+        y: 666
+        width: 93
+        height: 94
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d3cf0640826c799c0800000000000000
+      internalID: -3920447075428271043
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_12
+      rect:
+        serializedVersion: 2
+        x: 836
+        y: 673
+        width: 62
+        height: 65
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1663ae1c64bb56d50800000000000000
+      internalID: 6729991130750531169
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_13
+      rect:
+        serializedVersion: 2
+        x: 14
+        y: 525
+        width: 158
+        height: 127
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9c0110372dd5a87d0800000000000000
+      internalID: -2915414650315009847
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_14
+      rect:
+        serializedVersion: 2
+        x: 200
+        y: 537
+        width: 78
+        height: 83
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bbb25bb648f18df10800000000000000
+      internalID: 2294618663748447163
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_15
+      rect:
+        serializedVersion: 2
+        x: 283
+        y: 538
+        width: 74
+        height: 79
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bc14a30c243173d80800000000000000
+      internalID: -8271121013228813877
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_16
+      rect:
+        serializedVersion: 2
+        x: 361
+        y: 537
+        width: 78
+        height: 82
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4b741c5c3e4a47890800000000000000
+      internalID: -7461157384463759436
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_17
+      rect:
+        serializedVersion: 2
+        x: 445
+        y: 535
+        width: 79
+        height: 83
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 62ce6a7c2376cbae0800000000000000
+      internalID: -1532236305417180122
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_18
+      rect:
+        serializedVersion: 2
+        x: 541
+        y: 533
+        width: 100
+        height: 100
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1690f9c383cb793d0800000000000000
+      internalID: -3199882060502202015
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_19
+      rect:
+        serializedVersion: 2
+        x: 679
+        y: 581
+        width: 57
+        height: 58
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3231089c80e8d72a0800000000000000
+      internalID: -6738073299084897501
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_20
+      rect:
+        serializedVersion: 2
+        x: 743
+        y: 585
+        width: 56
+        height: 57
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b295ef8cdf31f2580800000000000000
+      internalID: -8849832762039969493
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_21
+      rect:
+        serializedVersion: 2
+        x: 816
+        y: 581
+        width: 60
+        height: 62
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 40c3c5d9d8a9c3320800000000000000
+      internalID: 2539074222951250948
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_22
+      rect:
+        serializedVersion: 2
+        x: 662
+        y: 524
+        width: 52
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4fe9c7428563c6810800000000000000
+      internalID: 1759841306592190196
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_23
+      rect:
+        serializedVersion: 2
+        x: 733
+        y: 525
+        width: 37
+        height: 45
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e06cf77501088d130800000000000000
+      internalID: 3591761510503794190
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_24
+      rect:
+        serializedVersion: 2
+        x: 786
+        y: 529
+        width: 44
+        height: 41
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e0a7da0f7d54e52f0800000000000000
+      internalID: -982270874962003442
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_25
+      rect:
+        serializedVersion: 2
+        x: 843
+        y: 526
+        width: 46
+        height: 38
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 77753dd1a5cf38c60800000000000000
+      internalID: 7819370842022958967
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_26
+      rect:
+        serializedVersion: 2
+        x: 10
+        y: 263
+        width: 230
+        height: 255
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 659524b4cee4bc5f0800000000000000
+      internalID: -735407337363056298
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_27
+      rect:
+        serializedVersion: 2
+        x: 251
+        y: 262
+        width: 260
+        height: 232
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e7ed0c724a50531e0800000000000000
+      internalID: -2218861038810374530
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_28
+      rect:
+        serializedVersion: 2
+        x: 524
+        y: 410
+        width: 228
+        height: 70
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0adf3c011d3827130800000000000000
+      internalID: 3563055189156167072
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_29
+      rect:
+        serializedVersion: 2
+        x: 676
+        y: 360
+        width: 67
+        height: 64
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 17f405bd1500aa5e0800000000000000
+      internalID: -1897703941411418255
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_30
+      rect:
+        serializedVersion: 2
+        x: 767
+        y: 320
+        width: 122
+        height: 122
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e47710e734051dd20800000000000000
+      internalID: 3301508252646340430
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_31
+      rect:
+        serializedVersion: 2
+        x: 533
+        y: 344
+        width: 102
+        height: 58
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 663255afc2025a0a0800000000000000
+      internalID: -6871050278933290138
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_32
+      rect:
+        serializedVersion: 2
+        x: 600
+        y: 285
+        width: 109
+        height: 77
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 463c495972748a220800000000000000
+      internalID: 2497324228715791204
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_33
+      rect:
+        serializedVersion: 2
+        x: 20
+        y: 212
+        width: 280
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 550967a9765bd7290800000000000000
+      internalID: -7890951515505520555
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_34
+      rect:
+        serializedVersion: 2
+        x: 324
+        y: 169
+        width: 71
+        height: 72
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c9100aacf302ecfd0800000000000000
+      internalID: -2319881299694714468
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_35
+      rect:
+        serializedVersion: 2
+        x: 415
+        y: 168
+        width: 71
+        height: 72
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6c8aa3ab59accedd0800000000000000
+      internalID: -2455364952400418618
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_36
+      rect:
+        serializedVersion: 2
+        x: 496
+        y: 173
+        width: 191
+        height: 74
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b08d976e135839bc0800000000000000
+      internalID: -3777529213067077621
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_37
+      rect:
+        serializedVersion: 2
+        x: 696
+        y: 173
+        width: 197
+        height: 74
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4d3f5b3eb75ab22b0800000000000000
+      internalID: -5608206959439907884
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_38
+      rect:
+        serializedVersion: 2
+        x: 56
+        y: 23
+        width: 37
+        height: 183
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a79bb12e82b566a60800000000000000
+      internalID: 7666915646795135354
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_39
+      rect:
+        serializedVersion: 2
+        x: 325
+        y: 95
+        width: 70
+        height: 65
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e3aa9338c412dc800800000000000000
+      internalID: 634199735031933502
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_40
+      rect:
+        serializedVersion: 2
+        x: 415
+        y: 95
+        width: 72
+        height: 66
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ee3295564863b7840800000000000000
+      internalID: 5222828135130145774
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_41
+      rect:
+        serializedVersion: 2
+        x: 571
+        y: 91
+        width: 204
+        height: 73
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8f9f3b2ea4b147280800000000000000
+      internalID: -9046575743035508232
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_42
+      rect:
+        serializedVersion: 2
+        x: 119
+        y: 22
+        width: 123
+        height: 71
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ee3289936e7728b50800000000000000
+      internalID: 6593964635116282862
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_43
+      rect:
+        serializedVersion: 2
+        x: 216
+        y: 19
+        width: 26
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d06d31c3ddcadf050800000000000000
+      internalID: 5836010758337713677
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_44
+      rect:
+        serializedVersion: 2
+        x: 263
+        y: 22
+        width: 81
+        height: 63
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1f55059cf76887bc0800000000000000
+      internalID: -3785127603408448015
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_45
+      rect:
+        serializedVersion: 2
+        x: 365
+        y: 25
+        width: 65
+        height: 60
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bafd5cbe0cce5d0d0800000000000000
+      internalID: -3398550030447681621
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_46
+      rect:
+        serializedVersion: 2
+        x: 461
+        y: 19
+        width: 64
+        height: 69
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e4a74eecfede225d0800000000000000
+      internalID: -3088644780198692274
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_47
+      rect:
+        serializedVersion: 2
+        x: 531
+        y: 27
+        width: 39
+        height: 45
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 570c7dacf8282b350800000000000000
+      internalID: 6031026405097586805
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_48
+      rect:
+        serializedVersion: 2
+        x: 590
+        y: 26
+        width: 38
+        height: 43
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e16b03af235fb8920800000000000000
+      internalID: 2993755976612492830
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_49
+      rect:
+        serializedVersion: 2
+        x: 666
+        y: 23
+        width: 50
+        height: 53
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 17a63a4f0b83d7690800000000000000
+      internalID: -7602858263261779343
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_50
+      rect:
+        serializedVersion: 2
+        x: 729
+        y: 25
+        width: 46
+        height: 50
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e3500802b6e9afa20800000000000000
+      internalID: 3096961876714587454
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_51
+      rect:
+        serializedVersion: 2
+        x: 792
+        y: 24
+        width: 43
+        height: 51
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6072794e9b69a1dd0800000000000000
+      internalID: -2514531716784773370
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: erasebg-transformed_52
+      rect:
+        serializedVersion: 2
+        x: 848
+        y: 32
+        width: 38
+        height: 37
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f10d8024c98f83910800000000000000
+      internalID: 1817475799650455583
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      erasebg-transformed_0: 1536996641685361034
+      erasebg-transformed_1: 1108315334394538923
+      erasebg-transformed_10: -5114488592208321294
+      erasebg-transformed_11: -3920447075428271043
+      erasebg-transformed_12: 6729991130750531169
+      erasebg-transformed_13: -2915414650315009847
+      erasebg-transformed_14: 2294618663748447163
+      erasebg-transformed_15: -8271121013228813877
+      erasebg-transformed_16: -7461157384463759436
+      erasebg-transformed_17: -1532236305417180122
+      erasebg-transformed_18: -3199882060502202015
+      erasebg-transformed_19: -6738073299084897501
+      erasebg-transformed_2: -228710743714197807
+      erasebg-transformed_20: -8849832762039969493
+      erasebg-transformed_21: 2539074222951250948
+      erasebg-transformed_22: 1759841306592190196
+      erasebg-transformed_23: 3591761510503794190
+      erasebg-transformed_24: -982270874962003442
+      erasebg-transformed_25: 7819370842022958967
+      erasebg-transformed_26: -735407337363056298
+      erasebg-transformed_27: -2218861038810374530
+      erasebg-transformed_28: 3563055189156167072
+      erasebg-transformed_29: -1897703941411418255
+      erasebg-transformed_3: -6430408527534854519
+      erasebg-transformed_30: 3301508252646340430
+      erasebg-transformed_31: -6871050278933290138
+      erasebg-transformed_32: 2497324228715791204
+      erasebg-transformed_33: -7890951515505520555
+      erasebg-transformed_34: -2319881299694714468
+      erasebg-transformed_35: -2455364952400418618
+      erasebg-transformed_36: -3777529213067077621
+      erasebg-transformed_37: -5608206959439907884
+      erasebg-transformed_38: 7666915646795135354
+      erasebg-transformed_39: 634199735031933502
+      erasebg-transformed_4: -6621485674010474988
+      erasebg-transformed_40: 5222828135130145774
+      erasebg-transformed_41: -9046575743035508232
+      erasebg-transformed_42: 6593964635116282862
+      erasebg-transformed_43: 5836010758337713677
+      erasebg-transformed_44: -3785127603408448015
+      erasebg-transformed_45: -3398550030447681621
+      erasebg-transformed_46: -3088644780198692274
+      erasebg-transformed_47: 6031026405097586805
+      erasebg-transformed_48: 2993755976612492830
+      erasebg-transformed_49: -7602858263261779343
+      erasebg-transformed_5: -4705107138985097465
+      erasebg-transformed_50: 3096961876714587454
+      erasebg-transformed_51: -2514531716784773370
+      erasebg-transformed_52: 1817475799650455583
+      erasebg-transformed_6: 4165935194899390284
+      erasebg-transformed_7: -975052797340606253
+      erasebg-transformed_8: -881386968765379087
+      erasebg-transformed_9: -2722060147758008080
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

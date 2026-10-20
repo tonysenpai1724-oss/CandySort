@@ -11,16 +11,21 @@ namespace CandySort
     {
         [SerializeField, Range(1, CandySortCampaign.LevelCount)] private int startingLevel = 1;
         [SerializeField] private bool rememberProgress = true;
-        [Tooltip("Optional sprites: strawberry, lemon, grape, mint, blueberry, orange. Empty entries use colored placeholders.")]
-        [SerializeField] private Sprite[] candySprites = new Sprite[6];
+        [Tooltip("32 candy sprites in sheet order (Candy 01–32). Slot 0 is swirl_lollipop; slot 31 is lemon_wedge. Empty entries use colored placeholders. See the Candy Sort README for the complete mapping.")]
+        [SerializeField] private Sprite[] candySprites = new Sprite[CandySortModel.CandyKindCount];
         private const string SaveKey = "CandySort.Level";
         private const string CompletionKey = "CandySort.CampaignComplete";
         private const float BubbleCandySize = 72;
         private CandySortModel model;
-        private RectTransform root, plateLayer, tempLayer, board, bubbleLayer, modalLayer, effectLayer;
-        private Text levelLabel, difficultyLabel, progressLabel, hintLabel, queueLabel;
-        private Image progressFill;
-        private Button undoButton;
+        [SerializeField] private Sprite[] interfaceSprites;
+        [SerializeField] private Camera sceneCamera;
+        [SerializeField] private RectTransform root, plateLayer, tempLayer, board, bubbleLayer, modalLayer, effectLayer;
+        [SerializeField] private Text levelLabel, difficultyLabel, progressLabel, hintLabel, queueLabel;
+        [SerializeField] private Image progressFill;
+        [SerializeField] private Button helpButton, restartButton, undoButton;
+        [SerializeField] private PlateView[] plateViews;
+        [SerializeField] private TempView[] tempViews;
+        [SerializeField] private List<BubbleView> sceneBubbles = new List<BubbleView>();
         private Font font;
         private bool busy;
         private CandyBubbleLayout layout;
@@ -42,34 +47,91 @@ namespace CandySort
             public Dictionary<int, List<int>> CandySlots;
         }
 
-        private sealed class BubbleView
+        [System.Serializable]
+        private sealed class PlateView
         {
             public RectTransform Rect;
+            public Image Dish, Ring, Sample;
+            public Image[] Candies;
+            public Text Count, Locked, Unlock, Served;
+        }
+
+        [System.Serializable]
+        private sealed class TempView
+        {
+            public RectTransform Rect;
+            public Button Candy;
+            public Text Empty;
+        }
+
+        [System.Serializable]
+        private sealed class BubbleView
+        {
+            public int Id;
+            public RectTransform Rect;
             public RectTransform Candies;
-            public Vector2 Target;
-            public float Velocity;
+            public List<Button> Buttons = new List<Button>();
+            [System.NonSerialized] public Vector2 Target;
+            [System.NonSerialized] public float Velocity;
             public float Diameter;
             public int InitialCount;
+        }
+
+        private void OnValidate()
+        {
+            System.Array.Resize(ref candySprites, CandySortModel.CandyKindCount);
         }
 
         private void Start()
         {
             Application.targetFrameRate = 60;
+            InitializeViews();
+            RestoreProgress();
+        }
+
+        public void BuildScenePreview(Sprite[] sprites)
+        {
+            if (Application.isPlaying) return;
+            interfaceSprites = sprites;
+            InitializeViews();
+            LoadLevel(1);
+            foreach (var view in bubbles.Values) view.Rect.anchoredPosition = view.Target;
+            root.localScale = Vector3.one;
+            root.anchoredPosition = Vector2.zero;
+        }
+
+        private void InitializeViews()
+        {
             CandySortArt.SetCandySprites(candySprites);
-            if (Camera.main == null)
+            CandySortArt.SetInterfaceSprites(interfaceSprites);
+            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (sceneCamera == null) sceneCamera = Camera.main;
+            if (sceneCamera == null)
             {
                 var cameraObject = new GameObject("Candy Camera", typeof(Camera));
                 cameraObject.transform.SetParent(transform, false);
                 cameraObject.transform.localPosition = new Vector3(0, 0, -10);
                 cameraObject.tag = "MainCamera";
-                var camera = cameraObject.GetComponent<Camera>();
-                camera.orthographic = true;
-                camera.clearFlags = CameraClearFlags.SolidColor;
-                camera.backgroundColor = CandySortArt.Hex("082A44");
+                sceneCamera = cameraObject.GetComponent<Camera>();
+                sceneCamera.orthographic = true;
+                sceneCamera.clearFlags = CameraClearFlags.SolidColor;
+                sceneCamera.backgroundColor = CandySortArt.Hex("082A44");
             }
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            BuildInterface();
-            RestoreProgress();
+            if (root == null) BuildInterface();
+            EnsurePlateViews();
+            EnsureTempViews();
+            BindClick(helpButton, ShowHelp);
+            BindClick(restartButton, () => { if (!busy) LoadLevel(model.Level); });
+            BindClick(undoButton, Undo);
+            bubbles.Clear();
+            foreach (var view in sceneBubbles)
+                if (view != null && view.Rect != null) bubbles[view.Id] = view;
+        }
+
+        private static void BindClick(Button button, UnityEngine.Events.UnityAction action)
+        {
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(action);
         }
 
         private void RestoreProgress()
@@ -126,7 +188,11 @@ namespace CandySort
             var ocean = Image(root, "Ocean backdrop", Vector2.zero, new Vector2(720, 1280), Color.white, CandySortArt.Ocean);
             Center(ocean.rectTransform);
             ocean.raycastTarget = false;
-            if (EventSystem.current == null) new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            if (FindFirstObjectByType<EventSystem>() == null)
+            {
+                var events = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+                events.transform.SetParent(transform, false);
+            }
 
             for (int i = 0; i < 16; i++)
             {
@@ -136,7 +202,7 @@ namespace CandySort
             }
             Label(root, "SWEET BUBBLES", new Vector2(0, 23), new Vector2(480, 25), 14, CandySortArt.Hex("7ED9EA"), FontStyle.Bold);
             Label(root, "Candy Sort", new Vector2(0, 63), new Vector2(490, 64), 45, CandySortArt.Ink, FontStyle.Bold);
-            Button(root, "?", new Vector2(302, 62), new Vector2(54, 54), CandySortArt.Hex("176582"), CandySortArt.Ink, 25, ShowHelp);
+            helpButton = Button(root, "?", new Vector2(302, 62), new Vector2(54, 54), CandySortArt.Hex("176582"), CandySortArt.Ink, 25, null);
             var levelPill = Panel(root, "Level pill", new Vector2(0, 118), new Vector2(178, 37), CandySortArt.Hex("155675"));
             levelLabel = Label(levelPill, "MÀN 01", Vector2.zero, new Vector2(170, 35), 19, CandySortArt.Hex("FFDD93"), FontStyle.Bold, true);
             difficultyLabel = Label(root, "LÀM QUEN", new Vector2(0, 156), new Vector2(660, 27), 19, muted, FontStyle.Bold);
@@ -163,7 +229,7 @@ namespace CandySort
             bubbleLayer.anchoredPosition = new Vector2(0, 12);
             queueLabel = Label(root, "", new Vector2(0, 443), new Vector2(650, 27), 17, muted);
             hintLabel = Label(root, "Chạm vào từng viên kẹo trong bong bóng", new Vector2(0, 1180), new Vector2(670, 30), 19, CandySortArt.Ink);
-            Button(root, "CHƠI LẠI", new Vector2(-230, 1234), new Vector2(180, 56), cream, CandySortArt.Ink, 17, () => { if (!busy) LoadLevel(model.Level); });
+            restartButton = Button(root, "CHƠI LẠI", new Vector2(-230, 1234), new Vector2(180, 56), cream, CandySortArt.Ink, 17, null);
             undoButton = Button(root, "HOÀN TÁC", new Vector2(0, 1234), new Vector2(210, 56), CandySortArt.Hex("158CB0"), Color.white, 18, Undo);
             var progress = Panel(root, "Order progress", new Vector2(230, 1234), new Vector2(180, 56), cream);
             progressLabel = Label(progress, "", new Vector2(0, -5), new Vector2(170, 35), 17, CandySortArt.Ink, FontStyle.Bold, true);
@@ -196,12 +262,10 @@ namespace CandySort
 
         private void LoadLevel(int level)
         {
-            StopAllCoroutines();
+            if (Application.isPlaying) StopAllCoroutines();
             busy = false;
             Clear(modalLayer);
             model = new CandySortModel(Mathf.Clamp(level, 1, CandySortCampaign.LevelCount));
-            Clear(bubbleLayer);
-            bubbles.Clear();
             Clear(effectLayer);
             originalBubbleCounts.Clear();
             originalRadii.Clear();
@@ -232,13 +296,22 @@ namespace CandySort
             var remaining = new HashSet<int>(model.Bubbles.Select(b => b.Id));
             foreach (int id in bubbles.Keys.Where(id => !remaining.Contains(id)).ToList())
             {
-                StartCoroutine(Pop(bubbles[id].Rect));
+                var rect = bubbles[id].Rect;
+                if (Application.isPlaying && !initial) StartCoroutine(Pop(rect));
+                else RemoveView(rect.gameObject);
                 bubbles.Remove(id);
             }
             var centers = layout.Bodies.ToDictionary(b => b.Id, b => new Vector2(b.Position.X, b.Position.Y));
             foreach (var bubble in model.Bubbles)
             {
-                if (!bubbles.TryGetValue(bubble.Id, out BubbleView view))
+                bubbles.TryGetValue(bubble.Id, out BubbleView view);
+                if (view != null && view.InitialCount != originalBubbleCounts[bubble.Id])
+                {
+                    RemoveView(view.Rect.gameObject);
+                    bubbles.Remove(bubble.Id);
+                    view = null;
+                }
+                if (view == null)
                 {
                     float diameter = originalRadii[bubble.Id] * 2;
                     var rect = NewRect(bubbleLayer, "Bubble " + bubble.Id, Vector2.zero, Vector2.one * diameter);
@@ -250,88 +323,150 @@ namespace CandySort
                     Center(glass.rectTransform);
                     var shine = Image(rect, "Glint", new Vector2(-diameter * .24f, -diameter * .29f), new Vector2(diameter * .2f, diameter * .065f), new Color(1, 1, 1, .8f), CandySortArt.Circle);
                     Center(shine.rectTransform);
-                    view = new BubbleView { Rect = rect, Diameter = diameter, InitialCount = originalBubbleCounts[bubble.Id] };
+                    view = new BubbleView { Id = bubble.Id, Rect = rect, Diameter = diameter, InitialCount = originalBubbleCounts[bubble.Id] };
                     view.Candies = NewRect(rect, "Sweets", Vector2.zero, Vector2.one * diameter);
                     Center(view.Candies);
+                    for (int c = 0; c < view.InitialCount; c++)
+                    {
+                        Vector2 offset = CandyOffset(view.InitialCount, c, diameter);
+                        var button = Button(view.Candies, "", offset, Vector2.one * BubbleCandySize, Color.white, Color.white, 10, null, CandySortArt.Candy(CandyKind.SwirlLollipop));
+                        button.GetComponent<Image>().preserveAspect = true;
+                        Center(button.GetComponent<RectTransform>());
+                        view.Buttons.Add(button);
+                    }
                     bubbles.Add(bubble.Id, view);
-                    rect.anchoredPosition = initial
-                        ? new Vector2(centers[bubble.Id].x, Mathf.Max(board.rect.height + 30 + bubble.Id * 38, centers[bubble.Id].y + 100))
-                        : centers[bubble.Id];
+                    rect.anchoredPosition = centers[bubble.Id];
                 }
                 view.Target = centers[bubble.Id];
-                Clear(view.Candies);
-                int count = bubble.Candies.Count;
-                for (int c = 0; c < count; c++)
+                if (initial)
+                {
+                    view.Rect.anchoredPosition = view.Target;
+                    view.Velocity = 0;
+                }
+                foreach (var button in view.Buttons) button.gameObject.SetActive(false);
+                for (int c = 0; c < bubble.Candies.Count; c++)
                 {
                     int index = c, id = bubble.Id;
-                    Vector2 offset = CandyOffset(view.InitialCount, candySlots[bubble.Id][c], view.Diameter);
-                    var button = Button(view.Candies, "", offset, Vector2.one * BubbleCandySize, Color.white, Color.white, 10, null, CandySortArt.Candy(bubble.Candies[c]));
-                    Center(button.GetComponent<RectTransform>());
-                    button.onClick.AddListener(() => Take(id, index, button.GetComponent<RectTransform>()));
+                    var button = view.Buttons[candySlots[bubble.Id][c]];
+                    var image = button.GetComponent<Image>();
+                    image.sprite = CandySortArt.Candy(bubble.Candies[c]);
+                    image.type = UnityEngine.UI.Image.Type.Simple;
+                    button.gameObject.SetActive(true);
+                    BindClick(button, () => Take(id, index, button.GetComponent<RectTransform>()));
                     button.gameObject.name = "Candy " + CandySortArt.Names[(int)bubble.Candies[c]];
                 }
             }
+            sceneBubbles = bubbles.Values.OrderBy(view => view.Id).ToList();
             int waiting = bubbles.Values.Count(v => v.Target.y - v.Diameter * .5f >= board.rect.height - 12);
             queueLabel.text = model.Bubbles.Sum(b => b.Candies.Count) + " viên còn lại  ·  " +
                 (waiting > 0 ? waiting + " bong bóng chờ phía trên" : model.ActivePlates + "/4 đĩa đang mở");
         }
 
-        private void RenderPlates()
+        private void EnsurePlateViews()
         {
-            Clear(plateLayer);
-            platePositions.Clear();
-            for (int i = 0; i < 4; i++)
+            if (plateViews == null || plateViews.Length != 4) plateViews = new PlateView[4];
+            for (int i = 0; i < plateViews.Length; i++)
             {
-                var plate = model.Plates[i];
-                float x = (i - 1.5f) * 164;
-                var tile = Panel(plateLayer, "Plate " + (i + 1), new Vector2(x, 0), new Vector2(152, 160), plate.Active ? cream : CandySortArt.Hex("103B56"));
+                if (plateViews[i] != null && plateViews[i].Rect != null) continue;
+                var tile = Panel(plateLayer, "Plate " + (i + 1), new Vector2((i - 1.5f) * 164, 0), new Vector2(152, 160), cream);
                 Center(tile);
-                platePositions.Add(tile);
-                if (!plate.Active)
-                {
-                    Label(tile, "· · ·", new Vector2(0, -18), new Vector2(135, 65), 37, muted, FontStyle.Bold, true);
-                    Label(tile, "MỞ MÀN " + (i == 2 ? 3 : 5), new Vector2(0, 42), new Vector2(150, 30), 15, muted, FontStyle.Bold, true);
-                    continue;
-                }
-                if (!plate.Kind.HasValue)
-                {
-                    Label(tile, model.IsWon ? "XONG" : "ĐÃ PHỤC VỤ", Vector2.zero, new Vector2(140, 50), 17, muted, FontStyle.Bold, true);
-                    continue;
-                }
-                CandyKind kind = plate.Kind.Value;
-                var dish = Image(tile, "Porcelain dish", new Vector2(0, -15), new Vector2(119, 79), Color.white, CandySortArt.Circle);
-                Center(dish.rectTransform);
-                var ring = Image(tile, "Colored plate rim", new Vector2(0, -15), new Vector2(119, 79), CandySortArt.Colors[(int)kind] * new Color(1, 1, 1, .45f), CandySortArt.Ring);
-                Center(ring.rectTransform);
-                var sample = Image(tile, "Flavor sample", new Vector2(0, -22), new Vector2(55, 55), Color.white, CandySortArt.Candy(kind));
-                Center(sample.rectTransform);
-                Label(tile, CandySortArt.Names[(int)kind], new Vector2(0, 32), new Vector2(150, 25), 17, CandySortArt.Ink, FontStyle.Bold, true);
+                var view = new PlateView { Rect = tile, Candies = new Image[3] };
+                view.Dish = Image(tile, "Porcelain dish", new Vector2(0, -20), new Vector2(124, 90), Color.white, CandySortArt.Circle);
+                Center(view.Dish.rectTransform);
+                view.Ring = Image(tile, "Colored plate rim", new Vector2(0, -20), new Vector2(124, 90), Color.white, CandySortArt.Ring);
+                Center(view.Ring.rectTransform);
                 for (int c = 0; c < 3; c++)
                 {
-                    var dot = Image(tile, "Candy socket", new Vector2((c - 1) * 30, 61), new Vector2(20, 20), c < plate.Count ? CandySortArt.Colors[(int)kind] : CandySortArt.Hex("376C88"), CandySortArt.Circle);
-                    Center(dot.rectTransform);
+                    view.Candies[c] = Image(tile, "Plate candy " + c, PlateCandyOffset(c), new Vector2(40, 40), Color.white, CandySortArt.Candy(CandyKind.SwirlLollipop));
+                    view.Candies[c].preserveAspect = true;
+                    Center(view.Candies[c].rectTransform);
                 }
+                view.Sample = Image(tile, "Flavor sample", new Vector2(-27, 47), new Vector2(34, 34), Color.white, CandySortArt.Candy(CandyKind.SwirlLollipop));
+                view.Sample.preserveAspect = true;
+                Center(view.Sample.rectTransform);
+                view.Count = Label(tile, "0/3", new Vector2(24, 47), new Vector2(60, 34), 21, CandySortArt.Ink, FontStyle.Bold, true);
+                view.Count.gameObject.name = "Plate count";
+                view.Locked = Label(tile, "· · ·", new Vector2(0, -18), new Vector2(135, 65), 37, muted, FontStyle.Bold, true);
+                view.Unlock = Label(tile, "MỞ MÀN " + (i == 2 ? 3 : 5), new Vector2(0, 42), new Vector2(150, 30), 15, muted, FontStyle.Bold, true);
+                view.Served = Label(tile, "ĐÃ PHỤC VỤ", Vector2.zero, new Vector2(140, 50), 17, muted, FontStyle.Bold, true);
+                plateViews[i] = view;
             }
+            platePositions.Clear();
+            platePositions.AddRange(plateViews.Select(view => view.Rect));
+        }
+
+        private void RenderPlates()
+        {
+            for (int i = 0; i < plateViews.Length; i++)
+            {
+                var plate = model.Plates[i];
+                var view = plateViews[i];
+                bool serving = plate.Active && plate.Kind.HasValue;
+                view.Rect.GetComponent<Image>().color = plate.Active ? cream : CandySortArt.Hex("103B56");
+                view.Dish.gameObject.SetActive(serving);
+                view.Ring.gameObject.SetActive(serving);
+                view.Sample.gameObject.SetActive(serving);
+                view.Count.gameObject.SetActive(serving);
+                view.Locked.gameObject.SetActive(!plate.Active);
+                view.Unlock.gameObject.SetActive(!plate.Active);
+                view.Served.gameObject.SetActive(plate.Active && !plate.Kind.HasValue);
+                view.Served.text = model.IsWon ? "XONG" : "ĐÃ PHỤC VỤ";
+                CandyKind kind = plate.Kind ?? CandyKind.SwirlLollipop;
+                view.Sample.sprite = CandySortArt.Candy(kind);
+                foreach (var candy in view.Candies)
+                {
+                    candy.sprite = view.Sample.sprite;
+                    candy.gameObject.SetActive(false);
+                }
+                if (!serving) continue;
+                view.Ring.color = CandySortArt.Colors[(int)kind] * new Color(1, 1, 1, .45f);
+                view.Count.text = plate.Count + "/3";
+                for (int c = 0; c < plate.Count; c++) AddPlateCandy(view.Rect, kind, c);
+            }
+        }
+
+        private static Vector2 PlateCandyOffset(int index)
+        {
+            return index < 2 ? new Vector2(index == 0 ? -22 : 22, -32) : new Vector2(0, 1);
+        }
+
+        private void AddPlateCandy(RectTransform tile, CandyKind kind, int index)
+        {
+            var candy = plateViews.First(view => view.Rect == tile).Candies[index];
+            candy.sprite = CandySortArt.Candy(kind);
+            candy.gameObject.SetActive(true);
+        }
+
+        private void EnsureTempViews()
+        {
+            if (tempViews == null || tempViews.Length != 5) tempViews = new TempView[5];
+            for (int i = 0; i < tempViews.Length; i++)
+            {
+                if (tempViews[i] != null && tempViews[i].Rect != null) continue;
+                var slot = Panel(tempLayer, "Temp slot " + i, new Vector2((i - 2) * 115, 0), new Vector2(91, 76), cream);
+                Center(slot);
+                var outline = Image(slot, "Slot inset", Vector2.zero, new Vector2(61, 56), CandySortArt.Hex("0B324D"), CandySortArt.Circle);
+                Center(outline.rectTransform);
+                var button = Button(slot, "", Vector2.zero, new Vector2(61, 61), Color.white, Color.white, 12, null, CandySortArt.Candy(CandyKind.SwirlLollipop));
+                button.GetComponent<Image>().preserveAspect = true;
+                Center(button.GetComponent<RectTransform>());
+                var empty = Label(slot, "+", Vector2.zero, new Vector2(50, 45), 25, CandySortArt.Hex("71B2CF"), FontStyle.Normal, true);
+                tempViews[i] = new TempView { Rect = slot, Candy = button, Empty = empty };
+            }
+            tempPositions.Clear();
+            tempPositions.AddRange(tempViews.Select(view => view.Rect));
         }
 
         private void RenderTemp()
         {
-            Clear(tempLayer);
-            tempPositions.Clear();
-            for (int i = 0; i < model.Temp.Length; i++)
+            for (int i = 0; i < tempViews.Length; i++)
             {
                 int index = i;
-                var slot = Panel(tempLayer, "Temp slot " + i, new Vector2((i - 2) * 115, 0), new Vector2(91, 76), cream);
-                Center(slot);
-                tempPositions.Add(slot);
-                var outline = Image(slot, "Slot inset", Vector2.zero, new Vector2(61, 56), CandySortArt.Hex("0B324D"), CandySortArt.Circle);
-                Center(outline.rectTransform);
-                if (model.Temp[i].HasValue)
-                {
-                    var button = Button(slot, "", Vector2.zero, new Vector2(61, 61), Color.white, Color.white, 12, () => UseTemp(index), CandySortArt.Candy(model.Temp[i].Value));
-                    Center(button.GetComponent<RectTransform>());
-                }
-                else Label(slot, "+", Vector2.zero, new Vector2(50, 45), 25, CandySortArt.Hex("71B2CF"), FontStyle.Normal, true);
+                var view = tempViews[i];
+                view.Empty.gameObject.SetActive(!model.Temp[i].HasValue);
+                view.Candy.gameObject.SetActive(model.Temp[i].HasValue);
+                view.Candy.GetComponent<Image>().sprite = CandySortArt.Candy(model.Temp[i] ?? CandyKind.SwirlLollipop);
+                BindClick(view.Candy, () => UseTemp(index));
             }
         }
 
@@ -343,6 +478,7 @@ namespace CandySort
             CandyKind kind = bubble.Candies[index];
             Vector3 origin = source.position;
             int plate = model.Plates.ToList().FindIndex(p => p.Active && p.Kind == kind);
+            int plateCount = plate >= 0 ? model.Plates[plate].Count : 0;
             int slot = System.Array.FindIndex(model.Temp, t => !t.HasValue);
             int completed = model.CompletedOrders;
             var previousBoard = CaptureBoard();
@@ -357,13 +493,18 @@ namespace CandySort
             if (!model.Bubbles.Any(b => b.Id == id)) layout.Remove(id);
             busy = true;
             source.gameObject.SetActive(false);
-            Vector3 destination = plate >= 0 ? platePositions[plate].position : tempPositions[Mathf.Max(0, slot)].position;
-            StartCoroutine(Transfer(kind, origin, destination, completed));
+            RectTransform plateTarget = plate >= 0 ? platePositions[plate] : null;
+            Vector2 offset = PlateCandyOffset(plateCount);
+            Vector3 destination = plateTarget != null
+                ? plateTarget.TransformPoint(new Vector3(offset.x, -offset.y, 0))
+                : tempPositions[Mathf.Max(0, slot)].position;
+            StartCoroutine(Transfer(kind, origin, destination, completed, plateTarget, plateCount));
         }
 
-        private IEnumerator Transfer(CandyKind kind, Vector3 origin, Vector3 destination, int completed)
+        private IEnumerator Transfer(CandyKind kind, Vector3 origin, Vector3 destination, int completed, RectTransform plateTarget, int plateCount)
         {
             var flight = Image(effectLayer, "Flying candy", Vector2.zero, new Vector2(58, 58), Color.white, CandySortArt.Candy(kind));
+            flight.preserveAspect = true;
             Center(flight.rectTransform);
             for (float t = 0; t < 1; t += Time.unscaledDeltaTime / .3f)
             {
@@ -372,7 +513,14 @@ namespace CandySort
                 flight.transform.localScale = Vector3.one * (1 + Mathf.Sin(t * Mathf.PI) * .2f);
                 yield return null;
             }
+            if (plateTarget != null)
+            {
+                AddPlateCandy(plateTarget, kind, plateCount);
+                plateTarget.Find("Plate count").GetComponent<Text>().text = (plateCount + 1) + "/3";
+            }
             Destroy(flight.gameObject);
+            // Show the complete set of three before replacing the order.
+            if (plateTarget != null && plateCount == 2) yield return new WaitForSecondsRealtime(.22f);
             busy = false;
             Render();
             hintLabel.text = model.CompletedOrders > completed ? "Ngọt ngào! Đủ bộ 3, đĩa mới đã sẵn sàng." : "Chạm vào từng viên kẹo trong bong bóng";
@@ -501,6 +649,7 @@ namespace CandySort
 
         private IEnumerator Pop(RectTransform rect)
         {
+            rect.SetParent(effectLayer, true);
             for (float t = 0; t < 1; t += Time.unscaledDeltaTime / .18f)
             {
                 if (rect == null) yield break;
@@ -516,7 +665,7 @@ namespace CandySort
             var pieces = new List<RectTransform>();
             for (int i = 0; i < 12; i++)
             {
-                var image = Image(effectLayer, "Sugar sparkle", Vector2.zero, new Vector2(9, 15), CandySortArt.Colors[i % 6], CandySortArt.Rounded);
+                var image = Image(effectLayer, "Sugar sparkle", Vector2.zero, new Vector2(9, 15), CandySortArt.Colors[i % CandySortArt.Colors.Length], CandySortArt.Rounded);
                 Center(image.rectTransform);
                 image.transform.position = position;
                 pieces.Add(image.rectTransform);
@@ -610,13 +759,16 @@ namespace CandySort
             if (!string.IsNullOrEmpty(text)) Label(image.transform, text, Vector2.zero, size - new Vector2(10, 4), fontSize, textColor, FontStyle.Bold, true);
             return button;
         }
+        private static void RemoveView(GameObject target)
+        {
+            target.SetActive(false);
+            if (Application.isPlaying) Destroy(target);
+            else DestroyImmediate(target);
+        }
+
         private void Clear(Transform target)
         {
-            for (int i = target.childCount - 1; i >= 0; i--)
-            {
-                target.GetChild(i).gameObject.SetActive(false);
-                Destroy(target.GetChild(i).gameObject);
-            }
+            for (int i = target.childCount - 1; i >= 0; i--) RemoveView(target.GetChild(i).gameObject);
         }
     }
 }

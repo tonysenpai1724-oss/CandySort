@@ -9,6 +9,7 @@ internal static class Program
     {
         if (args.Contains("--tune-hard")) return GeometryTests.TuneHard(args);
         if (args.Contains("--tune-opening")) return GeometryTests.TuneOpening(args);
+        if (args.Contains("--tune-board")) return GeometryTests.TuneBoard(args);
         var failures = new List<string>();
         Run("campaign definitions and boundaries", ModelTests.Campaign, failures);
         Run("model invariants, seeds, invalid moves, undo and complete matches", ModelTests.Matches, failures);
@@ -85,15 +86,22 @@ internal static class Check
         int temp = model.Temp.Count(c => c.HasValue);
         That(inBubbles + temp + model.SortedCandies == model.TotalCandies, "Candy conservation failed.");
         That(model.SortedCandies == 3 * model.CompletedOrders + model.Plates.Sum(p => p.Count), "Sorted counter incorrect.");
-        foreach (CandyKind kind in Enum.GetValues<CandyKind>())
+        var remaining = model.RemainingByKind;
+        var kinds = Enum.GetValues<CandyKind>();
+        That(remaining.Count == 32 && remaining.Keys.OrderBy(k => k).SequenceEqual(kinds), "Remaining inventory must contain exactly the 32 playable candy kinds.");
+        var presentKinds = model.Bubbles.SelectMany(b => b.Candies)
+            .Concat(model.Temp.Where(c => c.HasValue).Select(c => c.Value))
+            .Concat(assigned).Concat(model.PendingOrders);
+        That(presentKinds.All(k => (uint)(int)k < (uint)model.Definition.FlavorCount), "Board/order state contains an invalid or locked candy kind.");
+        foreach (CandyKind kind in kinds)
         {
             int supply = model.Bubbles.Sum(b => b.Candies.Count(c => c == kind)) + model.Temp.Count(c => c == kind) + model.Plates.Where(p => p.Kind == kind).Sum(p => p.Count);
             int demand = 3 * (model.PendingOrders.Count(c => c == kind) + model.Plates.Count(p => p.Kind == kind));
             That(supply == demand, $"Per-kind order conservation failed for {kind}: {supply}!={demand}.");
-            That(model.RemainingByKind[kind] == supply, $"Remaining counter incorrect for {kind}.");
+            That(remaining[kind] == supply, $"Remaining counter incorrect for {kind}.");
             That(!model.Temp.Any(c => c == kind) || !model.Plates.Any(p => p.Active && p.Kind == kind), "DrainTemp left a routable candy behind.");
         }
-        That(model.RemainingByKind.Values.Sum() == model.TotalCandies - model.CompletedOrders * 3, "Remaining total incorrect.");
+        That(remaining.Values.Sum() == model.TotalCandies - model.CompletedOrders * 3, "Remaining total incorrect.");
         bool legal = model.Bubbles.Any(b => b.Candies.Any(c => model.Temp.Any(t => !t.HasValue) || model.Plates.Any(p => p.Active && p.Kind == c))) || model.Temp.Any(c => c.HasValue && model.Plates.Any(p => p.Active && p.Kind == c));
         That(model.IsBlocked == (!model.IsWon && !legal), "Blocked flag disagrees with legal move enumeration.");
         if (model.IsWon) That(model.Bubbles.Count == 0 && temp == 0 && model.PendingOrders.Count == 0 && model.Plates.All(p => !p.Kind.HasValue && p.Count == 0), "Win has leftover state.");

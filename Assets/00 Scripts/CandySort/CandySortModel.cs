@@ -6,12 +6,38 @@ namespace CandySort
 {
     public enum CandyKind
     {
-        Red,
-        Orange,
-        Yellow,
-        Green,
-        Blue,
-        Purple
+        SwirlLollipop,
+        PurpleJellybean,
+        LemonCandy,
+        GummyBearRed,
+        CandyCane,
+        PeppermintMint,
+        OrangeWrappedCandy,
+        BlueberryCandy,
+        ChocolateBar,
+        Marshmallow,
+        RainbowLollipop,
+        GreenJellybean,
+        ChocolateTart,
+        GummyWorm,
+        RockCandyStick,
+        StrawberryWrappedCandy,
+        SprinkleCandyBall,
+        CottonCandy,
+        CaramelCube,
+        GummyBearGreen,
+        CaramelToffee,
+        PeppermintSwirl,
+        PinkCandyBall,
+        BlackLicoriceTwist,
+        OrangeCandyBlueGum,
+        StripedLollipop,
+        ChocolateFudge,
+        GummyFish,
+        HeartCandy,
+        RedCandyBall,
+        WaferBar,
+        LemonWedge
     }
 
     /// <summary>
@@ -21,6 +47,8 @@ namespace CandySort
     /// </summary>
     public sealed class CandySortModel
     {
+        public const int CandyKindCount = 32;
+
         public sealed class Plate
         {
             public CandyKind? Kind { get; internal set; }
@@ -70,7 +98,7 @@ namespace CandySort
             get
             {
                 var remaining = new Dictionary<CandyKind, int>();
-                for (int i = 0; i < 6; i++) remaining[(CandyKind)i] = 0;
+                for (int i = 0; i < CandyKindCount; i++) remaining[(CandyKind)i] = 0;
                 for (int i = 0; i < bubbles.Count; i++)
                     for (int j = 0; j < bubbles[i].Candies.Count; j++)
                         remaining[bubbles[i].Candies[j]]++;
@@ -118,7 +146,9 @@ namespace CandySort
 
             var random = new DeterministicRandom(unchecked((uint)Definition.Seed ^ (uint)seed));
             var kinds = new List<CandyKind>();
-            for (int i = 0; i < 6; i++) kinds.Add((CandyKind)i);
+            // Unlock an intentional enum prefix before shuffling; later flavors
+            // cannot appear early merely because a seed shuffled a global pool.
+            for (int i = 0; i < Definition.FlavorCount; i++) kinds.Add((CandyKind)i);
             Shuffle(kinds, random);
             for (int i = 0; i < TargetOrders; i++)
                 pendingOrders.Add(kinds[i % Definition.FlavorCount]);

@@ -16,7 +16,7 @@ internal static class GeometryTests
         int onlyLevel = 0;
         int index = Array.IndexOf(args, "--level");
         if (index >= 0) onlyLevel = int.Parse(args[index + 1]);
-        Console.WriteLine("Geometry: level | exposed per kind (R/O/Y/G/B/P) | matching/visible | buffered | peak temp | moves | overflow px | policy");
+        Console.WriteLine($"Geometry: level | exposed per kind ({string.Join('/', Enum.GetNames<CandyKind>())}) | matching/visible | buffered | peak temp | moves | overflow px | policy");
         for (int level = 1; level <= 30; level++)
         {
             if (onlyLevel != 0 && level != onlyLevel) continue;
@@ -75,6 +75,70 @@ internal static class GeometryTests
         Console.WriteLine($"Verified winning traces: {output} ({solutions.Count} levels). Geometry failures: {failures.Count}.");
         Check.That(failures.Count == 0, string.Join(Environment.NewLine, failures));
         Check.That(solutions.Count == (onlyLevel == 0 ? 30 : 1), "Missing campaign solutions.");
+    }
+
+    public static int TuneBoard(string[] args)
+    {
+        int argument = Array.IndexOf(args, "--levels");
+        Check.That(argument >= 0, "Specify --levels with comma-separated levels.");
+        var definitions = (CandySortLevelDefinition[])typeof(CandySortCampaign)
+            .GetField("levels", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).GetValue(null);
+        int failed = 0;
+        int startArgument = Array.IndexOf(args, "--start-seed");
+        int startSeed = startArgument < 0 ? 0 : int.Parse(args[startArgument + 1]);
+        foreach (int level in args[argument + 1].Split(',').Select(int.Parse))
+        {
+            var original = CandySortCampaign.GetLevel(level);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            bool found = false;
+            int target = level == 5 ? 1 : original.IsHard ? 2 : 0;
+            try
+            {
+                for (int variant = startSeed; variant < startSeed + 96 && watch.Elapsed.TotalSeconds < 40 && !found; variant++)
+                foreach (int opening in original.IsHard ? new[] { original.OpeningTrayCandies, 14, 15, 16, 17, 18 }.Distinct() : new[] { 0 })
+                {
+                    definitions[level - 1] = new CandySortLevelDefinition(level, original.OrderCount, original.FlavorCount,
+                        original.ActivePlates, original.Seed, original.MinBubbleSize, original.MaxBubbleSize,
+                        original.Mixing, original.DifficultyLabel, original.HelpText, opening);
+                    try
+                    {
+                        var primary = new Board(level, variant);
+                        int primaryPolicy = 0;
+                        if (original.IsHard && !primary.Model.Bubbles.Any(b => b.Candies.Distinct().Count() == 1)) continue;
+                        Greedy(primary, 0);
+                        if (!primary.Model.IsWon && args.Contains("--policy-any"))
+                            for (int policy = 1; policy < (original.IsHard ? 6 : 12) && !primary.Model.IsWon; policy++)
+                            {
+                                primary = new Board(level, variant);
+                                primaryPolicy = policy;
+                                Greedy(primary, policy);
+                            }
+                        if (!primary.Model.IsWon || primary.Trace.bufferedMoves < target || primary.Trace.peakTemp < target) continue;
+                        var metrics = new List<string> { $"p{primaryPolicy}:{primary.Trace.bufferedMoves}/{primary.Trace.peakTemp}" };
+                        bool adequate = true;
+                        if (original.IsHard)
+                            for (int policy = 1; policy < 6; policy++)
+                            {
+                                var board = new Board(level, variant);
+                                Greedy(board, policy);
+                                metrics.Add($"p{policy}:{(board.Model.IsWon ? "win" : "stuck")}:{board.Trace.bufferedMoves}/{board.Trace.peakTemp}");
+                                if (!board.Model.IsWon || board.Trace.bufferedMoves >= target && board.Trace.peakTemp >= target) continue;
+                                adequate = false;
+                                break;
+                            }
+                        if (!adequate) continue;
+                        Console.WriteLine($"BOARD RECOMMEND L{level:D2} seed={original.Seed ^ variant}, variant={variant}, opening={opening}; {string.Join(' ', metrics)}; seconds={watch.Elapsed.TotalSeconds:F1}");
+                        found = true;
+                        break;
+                    }
+                    finally { definitions[level - 1] = original; }
+                }
+            }
+            finally { definitions[level - 1] = original; }
+            if (!found) { failed++; Console.WriteLine($"BOARD NO RECOMMENDATION L{level:D2}; seconds={watch.Elapsed.TotalSeconds:F1}"); }
+        }
+        Console.WriteLine($"Board tuning complete; missing={failed}; no production files changed.");
+        return failed == 0 ? 0 : 1;
     }
 
     public static int TuneOpening(string[] args)

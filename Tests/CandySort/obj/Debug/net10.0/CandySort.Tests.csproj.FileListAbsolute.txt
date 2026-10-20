@@ -12,3 +12,4 @@
 /home/sudv/Downloads/Telegram Desktop/empty template (3)/Tests/CandySort/obj/Debug/net10.0/CandySort.Tests.pdb
 /home/sudv/Downloads/Telegram Desktop/empty template (3)/Tests/CandySort/obj/Debug/net10.0/CandySort.Tests.genruntimeconfig.cache
 /home/sudv/Downloads/Telegram Desktop/empty template (3)/Tests/CandySort/obj/Debug/net10.0/ref/CandySort.Tests.dll
+/home/sudv/Downloads/Telegram Desktop/empty template (3)/Tests/CandySort/obj/Debug/net10.0/CandySort.Tests.sourcelink.json
