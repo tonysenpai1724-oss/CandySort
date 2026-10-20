@@ -270,12 +270,30 @@ public static class CandySortSceneBuilder
         {
             if (references.propertyType != SerializedPropertyType.ObjectReference) continue;
             if (references.objectReferenceValue == null)
-                throw new InvalidOperationException("Missing retained serialized reference: " + references.propertyPath);
+            {
+                string path = references.propertyPath;
+                bool optionalPlateDecoration = path.StartsWith("plateViews.Array.data[", StringComparison.Ordinal) &&
+                    new[] { ".Ring", ".LockIcon", ".Locked", ".Unlock", ".Served" }.Any(path.EndsWith);
+                bool optionalTrayLabel = path.StartsWith("tempViews.Array.data[", StringComparison.Ordinal) && path.EndsWith(".Empty", StringComparison.Ordinal);
+                if (optionalPlateDecoration || optionalTrayLabel) continue;
+                throw new InvalidOperationException("Missing retained serialized reference: " + path);
+            }
             if (references.objectReferenceValue is Component component && component.gameObject.scene != scene)
                 throw new InvalidOperationException("Retained view reference points outside the authored scene: " + references.propertyPath);
             referenceCount++;
         }
-        Require(referenceCount > 0, "All " + referenceCount + " retained serialized sprite/camera/rect/text/button references are assigned", report);
+        Require(referenceCount > 0, "All required retained references are assigned (" + referenceCount + " total); optional decorations may be omitted", report);
+        for (int i = 0; i < plateViews.arraySize; i++)
+        {
+            var entry = plateViews.GetArrayElementAtIndex(i);
+            var rect = (RectTransform)entry.FindPropertyRelative("Rect").objectReferenceValue;
+            var icon = (Image)entry.FindPropertyRelative("LockIcon").objectReferenceValue;
+            var authoredIcon = rect.Find("Lock icon") ?? rect.Find("Image");
+            if (authoredIcon != null && authoredIcon.GetComponent<Image>() != null)
+                Require(icon == authoredIcon.GetComponent<Image>(), "Plate " + (i + 1) + " retains its authored lock Image", report);
+            if (icon != null)
+                Require(icon.gameObject.activeSelf == (i >= 2), "Plate " + (i + 1) + " lock Image matches stage-1 unlock state", report);
+        }
         var assigned = serialized.FindProperty("candySprites");
         Require(assigned != null && assigned.arraySize == 32 && Enumerable.Range(0, 32).All(i =>
             assigned.GetArrayElementAtIndex(i).objectReferenceValue == candies[i]),

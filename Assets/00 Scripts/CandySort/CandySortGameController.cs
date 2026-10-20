@@ -51,9 +51,10 @@ namespace CandySort
         private sealed class PlateView
         {
             public RectTransform Rect;
-            public Image Dish, Ring, Sample;
+            public Image Dish, Ring, Sample, LockIcon;
             public Image[] Candies;
-            public Text Count, Locked, Unlock, Served;
+            public Text Count, Locked, Served;
+            public Graphic Unlock;
         }
 
         [System.Serializable]
@@ -364,35 +365,75 @@ namespace CandySort
 
         private void EnsurePlateViews()
         {
-            if (plateViews == null || plateViews.Length != 4) plateViews = new PlateView[4];
+            System.Array.Resize(ref plateViews, 4);
             for (int i = 0; i < plateViews.Length; i++)
             {
-                if (plateViews[i] != null && plateViews[i].Rect != null) continue;
-                var tile = Panel(plateLayer, "Plate " + (i + 1), new Vector2((i - 1.5f) * 164, 0), new Vector2(152, 160), cream);
-                Center(tile);
-                var view = new PlateView { Rect = tile, Candies = new Image[3] };
-                view.Dish = Image(tile, "Porcelain dish", new Vector2(0, -20), new Vector2(124, 90), Color.white, CandySortArt.Circle);
-                Center(view.Dish.rectTransform);
-                view.Ring = Image(tile, "Colored plate rim", new Vector2(0, -20), new Vector2(124, 90), Color.white, CandySortArt.Ring);
-                Center(view.Ring.rectTransform);
-                for (int c = 0; c < 3; c++)
+                var view = plateViews[i] ?? (plateViews[i] = new PlateView());
+                if (view.Rect == null) view.Rect = FindView<RectTransform>(plateLayer, "Plate " + (i + 1));
+                bool created = view.Rect == null;
+                if (created)
                 {
-                    view.Candies[c] = Image(tile, "Plate candy " + c, PlateCandyOffset(c), new Vector2(40, 40), Color.white, CandySortArt.Candy(CandyKind.SwirlLollipop));
-                    view.Candies[c].preserveAspect = true;
-                    Center(view.Candies[c].rectTransform);
+                    view.Rect = Panel(plateLayer, "Plate " + (i + 1), new Vector2((i - 1.5f) * 164, 0), new Vector2(152, 160), cream);
+                    Center(view.Rect);
                 }
-                view.Sample = Image(tile, "Flavor sample", new Vector2(-27, 47), new Vector2(34, 34), Color.white, CandySortArt.Candy(CandyKind.SwirlLollipop));
-                view.Sample.preserveAspect = true;
-                Center(view.Sample.rectTransform);
-                view.Count = Label(tile, "0/3", new Vector2(24, 47), new Vector2(60, 34), 21, CandySortArt.Ink, FontStyle.Bold, true);
-                view.Count.gameObject.name = "Plate count";
+                var tile = view.Rect;
+                view.Dish = BindImage(view.Dish, tile, "Porcelain dish", new Vector2(0, -20), new Vector2(124, 90), CandySortArt.Circle);
+                view.Ring = view.Ring != null ? view.Ring : FindView<Image>(tile, "Colored plate rim");
+                if (created) view.Ring = BindImage(view.Ring, tile, "Colored plate rim", new Vector2(0, -20), new Vector2(124, 90), CandySortArt.Ring);
+                System.Array.Resize(ref view.Candies, 3);
+                for (int c = 0; c < view.Candies.Length; c++)
+                    view.Candies[c] = BindImage(view.Candies[c], tile, "Plate candy " + c, PlateCandyOffset(c), new Vector2(40, 40), CandySortArt.Candy(CandyKind.SwirlLollipop));
+                view.Sample = BindImage(view.Sample, tile, "Flavor sample", new Vector2(-27, 47), new Vector2(34, 34), CandySortArt.Candy(CandyKind.SwirlLollipop));
+                if (view.Count == null) view.Count = FindView<Text>(tile, "Plate count");
+                if (view.Count == null)
+                {
+                    view.Count = Label(tile, "0/3", new Vector2(24, 47), new Vector2(60, 34), 21, CandySortArt.Ink, FontStyle.Bold, true);
+                    view.Count.gameObject.name = "Plate count";
+                }
+                if (view.LockIcon == null) view.LockIcon = FindView<Image>(tile, "Lock icon") ?? FindView<Image>(tile, "Image");
+                if (view.Locked == null) view.Locked = FindView<Text>(tile, "Text · · ·");
+                // Graphic accepts both legacy Text and the authored TextMeshPro unlock labels.
+                if (view.Unlock == null) view.Unlock = FindView<Graphic>(tile, "Text MỞ MÀN " + (i == 2 ? 3 : 5));
+                if (view.Served == null) view.Served = FindView<Text>(tile, "Text ĐÃ PHỤC VỤ");
+                if (!created) continue;
                 view.Locked = Label(tile, "· · ·", new Vector2(0, -18), new Vector2(135, 65), 37, muted, FontStyle.Bold, true);
                 view.Unlock = Label(tile, "MỞ MÀN " + (i == 2 ? 3 : 5), new Vector2(0, 42), new Vector2(150, 30), 15, muted, FontStyle.Bold, true);
                 view.Served = Label(tile, "ĐÃ PHỤC VỤ", Vector2.zero, new Vector2(140, 50), 17, muted, FontStyle.Bold, true);
-                plateViews[i] = view;
             }
             platePositions.Clear();
             platePositions.AddRange(plateViews.Select(view => view.Rect));
+        }
+
+        private static T FindView<T>(Transform parent, string name) where T : Component
+        {
+            var child = parent.Find(name);
+            return child != null ? child.GetComponent<T>() : null;
+        }
+
+        private Image BindImage(Image image, Transform parent, string name, Vector2 position, Vector2 size, Sprite sprite)
+        {
+            if (image != null) return image;
+            image = FindView<Image>(parent, name);
+            if (image != null) return image;
+            var child = parent.Find(name);
+            if (child != null)
+            {
+                image = child.gameObject.AddComponent<Image>();
+                image.sprite = sprite;
+                image.raycastTarget = false;
+            }
+            else
+            {
+                image = Image(parent, name, position, size, Color.white, sprite);
+                Center(image.rectTransform);
+            }
+            image.preserveAspect = true;
+            return image;
+        }
+
+        private static void SetVisible(Component component, bool visible)
+        {
+            if (component != null) component.gameObject.SetActive(visible);
         }
 
         private void RenderPlates()
@@ -402,15 +443,15 @@ namespace CandySort
                 var plate = model.Plates[i];
                 var view = plateViews[i];
                 bool serving = plate.Active && plate.Kind.HasValue;
-                view.Rect.GetComponent<Image>().color = plate.Active ? cream : CandySortArt.Hex("103B56");
                 view.Dish.gameObject.SetActive(serving);
-                view.Ring.gameObject.SetActive(serving);
+                SetVisible(view.Ring, serving && (view.Dish.sprite == CandySortArt.Circle || view.Dish.sprite == CandySortArt.Ring));
                 view.Sample.gameObject.SetActive(serving);
                 view.Count.gameObject.SetActive(serving);
-                view.Locked.gameObject.SetActive(!plate.Active);
-                view.Unlock.gameObject.SetActive(!plate.Active);
-                view.Served.gameObject.SetActive(plate.Active && !plate.Kind.HasValue);
-                view.Served.text = model.IsWon ? "XONG" : "ĐÃ PHỤC VỤ";
+                SetVisible(view.LockIcon, !plate.Active);
+                SetVisible(view.Locked, !plate.Active && view.LockIcon == null);
+                SetVisible(view.Unlock, !plate.Active);
+                SetVisible(view.Served, plate.Active && !plate.Kind.HasValue);
+                if (view.Served != null) view.Served.text = model.IsWon ? "XONG" : "ĐÃ PHỤC VỤ";
                 CandyKind kind = plate.Kind ?? CandyKind.SwirlLollipop;
                 view.Sample.sprite = CandySortArt.Candy(kind);
                 foreach (var candy in view.Candies)
@@ -419,7 +460,8 @@ namespace CandySort
                     candy.gameObject.SetActive(false);
                 }
                 if (!serving) continue;
-                view.Ring.color = CandySortArt.Colors[(int)kind] * new Color(1, 1, 1, .45f);
+                if (view.Ring != null && view.Ring.gameObject.activeSelf)
+                    view.Ring.color = CandySortArt.Colors[(int)kind] * new Color(1, 1, 1, .45f);
                 view.Count.text = plate.Count + "/3";
                 for (int c = 0; c < plate.Count; c++) AddPlateCandy(view.Rect, kind, c);
             }
@@ -439,22 +481,47 @@ namespace CandySort
 
         private void EnsureTempViews()
         {
-            if (tempViews == null || tempViews.Length != 5) tempViews = new TempView[5];
+            System.Array.Resize(ref tempViews, 5);
             for (int i = 0; i < tempViews.Length; i++)
             {
-                if (tempViews[i] != null && tempViews[i].Rect != null) continue;
-                var slot = Panel(tempLayer, "Temp slot " + i, new Vector2((i - 2) * 115, 0), new Vector2(91, 76), cream);
-                Center(slot);
-                var outline = Image(slot, "Slot inset", Vector2.zero, new Vector2(61, 56), CandySortArt.Hex("0B324D"), CandySortArt.Circle);
-                Center(outline.rectTransform);
-                var button = Button(slot, "", Vector2.zero, new Vector2(61, 61), Color.white, Color.white, 12, null, CandySortArt.Candy(CandyKind.SwirlLollipop));
-                button.GetComponent<Image>().preserveAspect = true;
-                Center(button.GetComponent<RectTransform>());
-                var empty = Label(slot, "+", Vector2.zero, new Vector2(50, 45), 25, CandySortArt.Hex("71B2CF"), FontStyle.Normal, true);
-                tempViews[i] = new TempView { Rect = slot, Candy = button, Empty = empty };
+                var view = tempViews[i] ?? (tempViews[i] = new TempView());
+                if (view.Rect == null) view.Rect = FindView<RectTransform>(tempLayer, "Temp slot " + i);
+                bool created = view.Rect == null;
+                if (created)
+                {
+                    view.Rect = Panel(tempLayer, "Temp slot " + i, new Vector2((i - 2) * 115, 0), new Vector2(91, 76), cream);
+                    Center(view.Rect);
+                    var outline = Image(view.Rect, "Slot inset", Vector2.zero, new Vector2(61, 56), CandySortArt.Hex("0B324D"), CandySortArt.Circle);
+                    Center(outline.rectTransform);
+                    view.Empty = Label(view.Rect, "+", Vector2.zero, new Vector2(50, 45), 25, CandySortArt.Hex("71B2CF"), FontStyle.Normal, true);
+                }
+                if (view.Candy == null) view.Candy = FindView<Button>(view.Rect, "Button ");
+                if (view.Candy == null)
+                {
+                    var child = view.Rect.Find("Button ");
+                    if (child != null) view.Candy = child.gameObject.AddComponent<Button>();
+                    else
+                    {
+                        view.Candy = Button(view.Rect, "", Vector2.zero, new Vector2(61, 61), Color.white, Color.white, 12, null, CandySortArt.Candy(CandyKind.SwirlLollipop));
+                        Center(view.Candy.GetComponent<RectTransform>());
+                    }
+                }
+                var candyImage = view.Candy.GetComponent<Image>() ?? view.Candy.gameObject.AddComponent<Image>();
+                candyImage.preserveAspect = true;
+                candyImage.raycastTarget = true;
+                view.Candy.targetGraphic = candyImage;
+                if (view.Empty == null) view.Empty = FindView<Text>(view.Rect, "Text +");
+                // The new slot artwork already includes its inset and plus sign.
+                if (HasAuthoredSlotArt(view)) SetVisible(FindView<Image>(view.Rect, "Slot inset"), false);
             }
             tempPositions.Clear();
             tempPositions.AddRange(tempViews.Select(view => view.Rect));
+        }
+
+        private static bool HasAuthoredSlotArt(TempView view)
+        {
+            var background = view.Rect.GetComponent<Image>();
+            return background != null && background.sprite != null && background.sprite != CandySortArt.Rounded;
         }
 
         private void RenderTemp()
@@ -463,7 +530,7 @@ namespace CandySort
             {
                 int index = i;
                 var view = tempViews[i];
-                view.Empty.gameObject.SetActive(!model.Temp[i].HasValue);
+                SetVisible(view.Empty, !model.Temp[i].HasValue && !HasAuthoredSlotArt(view));
                 view.Candy.gameObject.SetActive(model.Temp[i].HasValue);
                 view.Candy.GetComponent<Image>().sprite = CandySortArt.Candy(model.Temp[i] ?? CandyKind.SwirlLollipop);
                 BindClick(view.Candy, () => UseTemp(index));

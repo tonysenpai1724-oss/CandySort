@@ -229,50 +229,54 @@ MonoBehaviour:
     Dish: {fileID: 831767011}
     Ring: {fileID: 1984677493}
     Sample: {fileID: 1727432971}
+    LockIcon: {fileID: 0}
     Candies:
     - {fileID: 380247250}
     - {fileID: 695062106}
     - {fileID: 1759448671}
     Count: {fileID: 1547014966}
     Locked: {fileID: 1006661403}
-    Unlock: {fileID: 1409465907}
     Served: {fileID: 1264574502}
+    Unlock: {fileID: 1409465907}
   - Rect: {fileID: 1835120274}
     Dish: {fileID: 1596389786}
     Ring: {fileID: 1437162858}
     Sample: {fileID: 315001804}
+    LockIcon: {fileID: 0}
     Candies:
     - {fileID: 1748715982}
     - {fileID: 1557847023}
     - {fileID: 558685335}
     Count: {fileID: 1443205210}
     Locked: {fileID: 121007221}
-    Unlock: {fileID: 753545258}
     Served: {fileID: 1035550968}
+    Unlock: {fileID: 753545258}
   - Rect: {fileID: 1355822678}
     Dish: {fileID: 755027711}
     Ring: {fileID: 1936479709}
     Sample: {fileID: 1590061137}
+    LockIcon: {fileID: 1050333167}
     Candies:
     - {fileID: 91166796}
     - {fileID: 898463737}
     - {fileID: 1841826294}
     Count: {fileID: 1718067893}
     Locked: {fileID: 1263498170}
-    Unlock: {fileID: 0}
     Served: {fileID: 1748787999}
+    Unlock: {fileID: 99335902}
   - Rect: {fileID: 1227658554}
     Dish: {fileID: 1637216250}
     Ring: {fileID: 347021994}
     Sample: {fileID: 1011072605}
+    LockIcon: {fileID: 1810351116}
     Candies:
     - {fileID: 1718214406}
     - {fileID: 1015621830}
     - {fileID: 1656315827}
     Count: {fileID: 475583754}
     Locked: {fileID: 774800012}
-    Unlock: {fileID: 0}
     Served: {fileID: 263071271}
+    Unlock: {fileID: 1191394745}
   tempViews:
   - Rect: {fileID: 649236162}
     Candy: {fileID: 635287322}
@@ -1965,6 +1969,81 @@ RectTransform:
   m_AnchoredPosition: {x: -0.000001846369, y: -42.239998}
   m_SizeDelta: {x: 72, y: 72}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &110552376
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 110552377}
+  - component: {fileID: 110552379}
+  - component: {fileID: 110552378}
+  m_Layer: 0
+  m_Name: Water depth (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &110552377
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 110552376}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1281285390}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: -171}
+  m_SizeDelta: {x: 690, y: 700}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &110552378
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 110552376}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: -8184241423505151371, guid: d357dc4fc5143c9ac99556fb38f2c60c, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &110552379
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 110552376}
+  m_CullTransparentMesh: 1
 --- !u!1 &111097595
 GameObject:
   m_ObjectHideFlags: 0
@@ -9485,9 +9564,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 6f3cfd6e70f4dddb0b74ae7b124f8739, type: 3}
+  m_Sprite: {fileID: -228710743714197807, guid: 2803967294994f02280408e22384f990, type: 3}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -17298,7 +17377,9 @@ RectTransform:
   - {fileID: 1047588868}
   - {fileID: 668555646}
   - {fileID: 1351358525}
+  - {fileID: 1398779595}
   - {fileID: 577776002}
+  - {fileID: 110552377}
   - {fileID: 1090883356}
   - {fileID: 345559558}
   - {fileID: 580268178}
@@ -18476,6 +18557,81 @@ RectTransform:
   m_AnchoredPosition: {x: 226, y: 190.00764}
   m_SizeDelta: {x: 192, y: 192}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1398779594
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1398779595}
+  - component: {fileID: 1398779597}
+  - component: {fileID: 1398779596}
+  m_Layer: 0
+  m_Name: Water depth (2)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1398779595
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1398779594}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1281285390}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: -171}
+  m_SizeDelta: {x: 690, y: 700}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1398779596
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1398779594}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 21300000, guid: 5d3d4eb0953029691bb62e4ae055b0bb, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &1398779597
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1398779594}
+  m_CullTransparentMesh: 1
 --- !u!1 &1409465906
 GameObject:
   m_ObjectHideFlags: 0
@@ -18690,7 +18846,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1425152097
 RectTransform:
   m_ObjectHideFlags: 0
@@ -21472,9 +21628,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 6f3cfd6e70f4dddb0b74ae7b124f8739, type: 3}
+  m_Sprite: {fileID: -6430408527534854519, guid: 2803967294994f02280408e22384f990, type: 3}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1

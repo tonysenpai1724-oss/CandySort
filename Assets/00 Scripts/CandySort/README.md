@@ -18,6 +18,12 @@ After reopening the saved scene or reloading the editor, use **Candy Sort → Va
 
 These three new commands run only when explicitly invoked: no startup hooks, polling, watchers, request files or pending-task persistence. They never enter Play mode, access PlayerPrefs or change Starting Level/Remember Progress. The saved edit preview is always stage 1, independently of the gameplay progress/settings used at runtime. For batch editor use, the public entry points are `-executeMethod CandySortSceneBuilder.BuildScene`, `-executeMethod CandySortSceneBuilder.VerifyAuthoredScene` and `-executeMethod CandySortSceneBuilder.ValidateSavedScene` (alongside the normal Unity `-projectPath`, `-batchmode`, `-quit` and `-logFile` arguments). Existing live smoke/trace helpers below remain separate tools.
 
+### Editing plate and tray visuals
+
+The saved scene keeps the two authored pink/purple dish sprites (alternating across four plates) and the five custom temporary-slot images. Play reuses their transforms and artwork; the legacy procedural rim/inset/plus overlays are hidden when the custom artwork supplies those details. Plate 3 and plate 4 retain their authored lock Images: each is visible only while that plate is locked. Unlock labels accept either legacy UI Text or TextMeshPro through a Graphic reference and are hidden with the lock when the plate opens. Lock, unlock-stage, served and empty-slot decorations are optional; missing serialized gameplay references are rebound to the existing named children before creating any fallback.
+
+Use **Candy Sort → Run Edited UI Regression Smoke Test** for focused Play-mode checks of startup, reference recovery, lock visibility at stages 1–5, retained artwork/layout, tray rendering and undo. It does not rebuild or save the scene, change PlayerPrefs, or require campaign solution traces. Results and screenshots are written under `Temp/CandySortVerification/`.
+
 ## Controls and rules
 
 - Tap a candy inside a bubble, not just the bubble outline.
