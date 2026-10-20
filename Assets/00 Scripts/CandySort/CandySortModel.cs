@@ -213,28 +213,121 @@ namespace CandySort
 
         private void BuildBubbles(List<CandyKind> inventory, DeterministicRandom random)
         {
+            int smallBubbles = 0;
             while (inventory.Count > 0)
             {
                 int size = inventory.Count <= Definition.MaxBubbleSize ? inventory.Count :
                     Definition.MinBubbleSize +
                     random.Next(Definition.MaxBubbleSize - Definition.MinBubbleSize + 1);
+                // Large groups show 3–4 kinds; a depleted tail uses smaller groups.
+                int[] counts = null;
+                if (Level >= 2 && size >= 2)
+                {
+                    counts = new int[CandyKindCount];
+                    int kinds = 0;
+                    for (int i = 0; i < inventory.Count; i++)
+                        if (counts[(int)inventory[i]]++ == 0) kinds++;
+                    if (size >= 4 && kinds < 3) size = 3;
+                    else if (size == 5 && kinds == inventory.Count) size = 4;
+                }
                 // Leave enough candies for the last group rather than emitting a tiny tail.
                 int left = inventory.Count - size;
                 if (left > 0 && left < Definition.MinBubbleSize)
                     size -= Definition.MinBubbleSize - left;
 
-                CandyKind leadingKind = inventory[random.Next(inventory.Count)];
-                var group = new List<CandyKind>(size);
-                for (int i = 0; i < size; i++)
+                List<CandyKind> group;
+                if (counts != null && size >= 4)
+                    group = BuildVariedBubble(inventory, size, counts, random);
+                else if (counts != null && size >= 2)
+                    group = BuildSmallBubble(inventory, size, counts, smallBubbles++ % 2 == 0, random);
+                else
                 {
-                    bool different = i > 0 && random.Next(100) < Definition.Mixing;
-                    int index = ChooseCandy(inventory, leadingKind, different, random);
-                    group.Add(inventory[index]);
-                    inventory.RemoveAt(index);
+                    CandyKind leadingKind = inventory[random.Next(inventory.Count)];
+                    group = new List<CandyKind>(size);
+                    for (int i = 0; i < size; i++)
+                    {
+                        bool different = i > 0 && random.Next(100) < Definition.Mixing;
+                        int index = ChooseCandy(inventory, leadingKind, different, random);
+                        group.Add(inventory[index]);
+                        inventory.RemoveAt(index);
+                    }
                 }
                 int bubbleId = bubbles.Count;
                 bubbles.Add(new Bubble { Id = bubbleId, Lane = bubbleId % 3, Candies = group });
             }
+        }
+
+        private List<CandyKind> BuildSmallBubble(List<CandyKind> inventory, int size,
+            int[] counts, bool mixed, DeterministicRandom random)
+        {
+            // Alternate mixed and matching groups, unless the remaining supply prevents it.
+            if (!mixed)
+            {
+                var candidates = new List<CandyKind>();
+                for (int i = 0; i < counts.Length; i++)
+                    if (counts[i] >= size) candidates.Add((CandyKind)i);
+                if (candidates.Count > 0)
+                {
+                    CandyKind kind = candidates[random.Next(candidates.Count)];
+                    var group = new List<CandyKind>(size);
+                    for (int i = 0; i < size; i++)
+                    {
+                        group.Add(kind);
+                        inventory.Remove(kind);
+                    }
+                    return group;
+                }
+            }
+            return BuildVariedBubble(inventory, size, counts, random);
+        }
+
+        private List<CandyKind> BuildVariedBubble(List<CandyKind> inventory, int size,
+            int[] counts, DeterministicRandom random)
+        {
+            int target = Math.Min(size, Math.Min((size <= 3 ? 2 : 3) + random.Next(2), Definition.FlavorCount));
+            int capacity = 0;
+            var kinds = new List<CandyKind>(4);
+            // Prefer well-stocked kinds so filling this group does not exhaust rare flavors.
+            while (kinds.Count < target || capacity < size)
+            {
+                int highest = 0;
+                var candidates = new List<CandyKind>();
+                for (int i = 0; i < counts.Length; i++)
+                {
+                    if (counts[i] == 0 || kinds.Contains((CandyKind)i)) continue;
+                    if (counts[i] > highest)
+                    {
+                        highest = counts[i];
+                        candidates.Clear();
+                    }
+                    if (counts[i] == highest) candidates.Add((CandyKind)i);
+                }
+                if (candidates.Count == 0) break;
+                CandyKind kind = candidates[random.Next(candidates.Count)];
+                kinds.Add(kind);
+                capacity += counts[(int)kind];
+            }
+            var choices = new List<CandyKind>();
+            for (int i = 0; i < inventory.Count; i++)
+                if (kinds.Contains(inventory[i])) choices.Add(inventory[i]);
+            var group = new List<CandyKind>(size);
+            for (int i = 0; i < kinds.Count; i++)
+            {
+                group.Add(kinds[i]);
+                choices.Remove(kinds[i]);
+                inventory.Remove(kinds[i]);
+            }
+            while (group.Count < size)
+            {
+                bool different = random.Next(100) < Definition.Mixing;
+                int index = ChooseCandy(choices, group[0], different, random);
+                CandyKind kind = choices[index];
+                group.Add(kind);
+                choices.RemoveAt(index);
+                inventory.Remove(kind);
+            }
+            Shuffle(group, random);
+            return group;
         }
 
         private static int ChooseCandy(List<CandyKind> inventory, CandyKind leadingKind,

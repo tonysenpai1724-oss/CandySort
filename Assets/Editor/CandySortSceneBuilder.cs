@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using CandySort;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -95,7 +96,7 @@ public static class CandySortSceneBuilder
             Require(!scene.isDirty, "Scene has no unsaved edits; validation does not build or save", report);
             var controllers = SceneObjects<CandySortGameController>(scene);
             Require(controllers.Length == 1, "Saved scene has exactly one controller", report);
-            VerifyScene(scene, controllers[0], report);
+            VerifyScene(scene, controllers[0], report, false);
             report.AppendLine("PASS: saved authored hierarchy, serialized view references and persistent sprites validated without rebuilding.");
             WriteReport(report);
             Debug.Log("Candy Sort saved scene validation PASSED. Report: " + ReportPath, controllers[0]);
@@ -233,28 +234,41 @@ public static class CandySortSceneBuilder
         return imported;
     }
 
-    private static void VerifyScene(Scene scene, CandySortGameController controller, StringBuilder report)
+    private static void VerifyScene(Scene scene, CandySortGameController controller, StringBuilder report, bool generatedPreview = true)
     {
         Require(SceneObjects<CandySortGameController>(scene).Length == 1, "Exactly one scene controller", report);
         Require(SceneObjects<Canvas>(scene).Length == 1, "Exactly one canvas (including inactive objects)", report);
         Require(SceneObjects<Camera>(scene).Length == 1, "Exactly one camera (including inactive objects)", report);
         Require(SceneObjects<EventSystem>(scene).Length == 1, "Exactly one EventSystem (including inactive objects)", report);
-        Require(controller.GetComponentsInChildren<Text>(true).Any(text => text.text.StartsWith("MÀN 01", StringComparison.Ordinal)),
-            "Edit preview displays stage 1", report);
+        Require(SceneObjects<UnityEngine.UI.Text>(scene).Length == 0,
+            "No legacy UI Text components remain in the authored scene (including inactive objects)", report);
+        Require(controller.GetComponentsInChildren<TextMeshProUGUI>(true).Any(text => text.text.StartsWith("MÀN 01", StringComparison.Ordinal)),
+            "TMP edit preview displays stage 1", report);
 
         var bubbleLayers = controller.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Falling bubbles").ToArray();
         Require(bubbleLayers.Length == 1, "Exactly one authored bubble layer", report);
         var buttons = bubbleLayers[0].GetComponentsInChildren<Button>(true);
         var candies = LoadCandySprites();
-        Require(buttons.Length == 81, "Stage 1 contains exactly 81 candy buttons", report);
+        Require(buttons.Length == 30, "Stage 1 tutorial contains exactly 30 candy buttons", report);
         Require(buttons.All(button => button.GetComponent<Image>() != null && button.GetComponent<Image>().preserveAspect &&
             candies.Contains(button.GetComponent<Image>().sprite)), "Every board candy uses an imported sheet slice with preserved aspect", report);
 
         var serialized = new SerializedObject(controller);
         string[] retainedFields = { "sceneCamera", "root", "plateLayer", "tempLayer", "board", "bubbleLayer", "modalLayer", "effectLayer",
-            "levelLabel", "difficultyLabel", "progressLabel", "hintLabel", "queueLabel", "progressFill", "helpButton", "restartButton", "undoButton" };
+            "levelLabel", "progressLabel", "queueLabel", "progressFill", "restartButton", "undoButton" };
         Require(retainedFields.All(name => serialized.FindProperty(name) != null && serialized.FindProperty(name).objectReferenceValue != null),
             "Retained camera, rect, text, image and button fields are serialized and assigned", report);
+        Require(new[] { "levelLabel", "progressLabel", "queueLabel" }.All(name =>
+            serialized.FindProperty(name).objectReferenceValue is TextMeshProUGUI),
+            "Required HUD labels reference TextMeshProUGUI components", report);
+        foreach (string name in new[] { "difficultyLabel", "hintLabel" })
+        {
+            var caption = serialized.FindProperty(name).objectReferenceValue;
+            Require(caption == null || caption is TextMeshProUGUI,
+                "Optional HUD label " + name + " uses TMP when assigned", report);
+        }
+        var helpButton = serialized.FindProperty("helpButton").objectReferenceValue;
+        Require(helpButton == null || helpButton is Button, "Optional help button is valid when assigned", report);
         var interfaceSprites = serialized.FindProperty("interfaceSprites");
         Require(interfaceSprites != null && interfaceSprites.arraySize == InterfaceNames.Length &&
             Enumerable.Range(0, InterfaceNames.Length).All(i => interfaceSprites.GetArrayElementAtIndex(i).objectReferenceValue ==
@@ -275,7 +289,8 @@ public static class CandySortSceneBuilder
                 bool optionalPlateDecoration = path.StartsWith("plateViews.Array.data[", StringComparison.Ordinal) &&
                     new[] { ".Ring", ".LockIcon", ".Locked", ".Unlock", ".Served" }.Any(path.EndsWith);
                 bool optionalTrayLabel = path.StartsWith("tempViews.Array.data[", StringComparison.Ordinal) && path.EndsWith(".Empty", StringComparison.Ordinal);
-                if (optionalPlateDecoration || optionalTrayLabel) continue;
+                bool optionalControllerView = path == "difficultyLabel" || path == "hintLabel" || path == "helpButton";
+                if (optionalPlateDecoration || optionalTrayLabel || optionalControllerView) continue;
                 throw new InvalidOperationException("Missing retained serialized reference: " + path);
             }
             if (references.objectReferenceValue is Component component && component.gameObject.scene != scene)
@@ -286,6 +301,14 @@ public static class CandySortSceneBuilder
         for (int i = 0; i < plateViews.arraySize; i++)
         {
             var entry = plateViews.GetArrayElementAtIndex(i);
+            Require(entry.FindPropertyRelative("Count").objectReferenceValue is TextMeshProUGUI,
+                "Plate " + (i + 1) + " retains its TMP quantity label", report);
+            foreach (string name in new[] { "Locked", "Unlock", "Served" })
+            {
+                var caption = entry.FindPropertyRelative(name).objectReferenceValue;
+                Require(caption == null || caption is TextMeshProUGUI,
+                    "Plate " + (i + 1) + " optional " + name + " caption uses TMP when assigned", report);
+            }
             var rect = (RectTransform)entry.FindPropertyRelative("Rect").objectReferenceValue;
             var icon = (Image)entry.FindPropertyRelative("LockIcon").objectReferenceValue;
             var authoredIcon = rect.Find("Lock icon") ?? rect.Find("Image");
@@ -293,6 +316,12 @@ public static class CandySortSceneBuilder
                 Require(icon == authoredIcon.GetComponent<Image>(), "Plate " + (i + 1) + " retains its authored lock Image", report);
             if (icon != null)
                 Require(icon.gameObject.activeSelf == (i >= 2), "Plate " + (i + 1) + " lock Image matches stage-1 unlock state", report);
+        }
+        for (int i = 0; i < tempViews.arraySize; i++)
+        {
+            var caption = tempViews.GetArrayElementAtIndex(i).FindPropertyRelative("Empty").objectReferenceValue;
+            Require(caption == null || caption is TextMeshProUGUI,
+                "Tray " + (i + 1) + " optional Empty caption uses TMP when assigned", report);
         }
         var assigned = serialized.FindProperty("candySprites");
         Require(assigned != null && assigned.arraySize == 32 && Enumerable.Range(0, 32).All(i =>
@@ -306,9 +335,14 @@ public static class CandySortSceneBuilder
         {
             string plateName = "Plate " + (i + 1);
             var sample = samples.Single(image => image.transform.parent.name == plateName);
-            var counts = sample.transform.parent.GetComponentsInChildren<Text>(true).Where(text => text.name == "Plate count").ToArray();
-            Require(sample.sprite == candies[(int)model.Plates[i].Kind.Value] && sample.preserveAspect &&
+            var counts = sample.transform.parent.GetComponentsInChildren<TextMeshProUGUI>(true).Where(text => text.name == "Plate count").ToArray();
+            Require(candies.Contains(sample.sprite) && sample.preserveAspect &&
                 counts.Length == 1 && counts[0].text == "0/3", plateName + " has its imported flavor sample and 0/3 quantity", report);
+            bool currentFlavor = sample.sprite == candies[(int)model.Plates[i].Kind.Value];
+            if (generatedPreview)
+                Require(currentFlavor, plateName + " preview matches the current stage-1 generated order", report);
+            else if (!currentFlavor)
+                report.AppendLine("NOTE: " + plateName + " retains its authored preview flavor; runtime will apply the current generated order. Validation does not rebuild the preview.");
         }
 
         var images = SceneObjects<Image>(scene);

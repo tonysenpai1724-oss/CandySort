@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using CandySort;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -43,7 +44,7 @@ public static class CandySortEditor
     };
     private static readonly int[] ExpectedFlavorCounts =
     {
-        2, 3, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17,
+        3, 7, 8, 8, 9, 9, 10, 10, 11, 12, 13, 14, 15, 16, 17,
         18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32
     };
     private static double nextTick;
@@ -318,8 +319,9 @@ public static class CandySortEditor
             }
             else if (step == 1)
             {
-                Require(model.Level == 1 && model.ActivePlates == 2 && model.TotalCandies == 81, "Opening stage starts with 81 candies and 2 plates");
-                Require(model.Definition.FlavorCount == 2 && !model.Definition.IsHard, "Tutorial introduces direct matching with two flavors");
+                Require(model.Level == 1 && model.ActivePlates == 2 && model.TotalCandies == 30, "Opening tutorial starts with 30 candies and 2 plates");
+                Require(model.Definition.FlavorCount == 3 && !model.Definition.IsHard, "Tutorial introduces three flavors with two plates and temporary storage");
+                Require(model.Definition.MinBubbleSize == 1 && model.Definition.MaxBubbleSize == 5, "Tutorial allows 1–5 candies per bubble");
                 VerifyBubbleGeometry();
                 Capture("01-start");
                 deferredAction = () => LoadLevel(4);
@@ -647,7 +649,7 @@ public static class CandySortEditor
         flavorCatalog.anchorMin = flavorCatalog.anchorMax = new Vector2(.5f, .5f);
         type.GetMethod("Label", Private).Invoke(controller, new object[]
         {
-            flavorCatalog, "32 LOẠI KẸO", new Vector2(0, -height * .5f + 29), new Vector2(width - 32, 40), 26, CandySortArt.Ink, FontStyle.Bold, true
+            flavorCatalog, "32 LOẠI KẸO", new Vector2(0, -height * .5f + 29), new Vector2(width - 32, 40), 26, CandySortArt.Ink, FontStyles.Bold, true
         });
         for (int i = 0; i < CatalogCount; i++)
         {
@@ -659,10 +661,10 @@ public static class CandySortEditor
             });
             image.preserveAspect = true;
             image.rectTransform.anchorMin = image.rectTransform.anchorMax = new Vector2(.5f, .5f);
-            var label = (Text)type.GetMethod("Label", Private).Invoke(controller, new object[]
+            var label = (TextMeshProUGUI)type.GetMethod("Label", Private).Invoke(controller, new object[]
             {
                 flavorCatalog, (i + 1).ToString("00") + " · " + CatalogNames[i], new Vector2(x, top + 101),
-                new Vector2(cellWidth - 8, rowHeight - 70), 18, CandySortArt.Ink, FontStyle.Bold, true
+                new Vector2(cellWidth - 8, rowHeight - 70), 18, CandySortArt.Ink, FontStyles.Bold, true
             });
             label.name = "Catalog label " + CatalogIds[i];
         }
@@ -676,7 +678,7 @@ public static class CandySortEditor
         Require(corners[0].x >= -1 && corners[0].y >= -1 && corners[2].x <= Screen.width + 1 && corners[2].y <= Screen.height + 1,
             "All-32 candy catalog fits the portrait screenshot");
         var images = flavorCatalog.GetComponentsInChildren<Image>().Where(image => image.name.StartsWith("Catalog candy ", StringComparison.Ordinal)).ToArray();
-        var labels = flavorCatalog.GetComponentsInChildren<Text>().Where(label => label.name.StartsWith("Catalog label ", StringComparison.Ordinal)).ToArray();
+        var labels = flavorCatalog.GetComponentsInChildren<TextMeshProUGUI>().Where(label => label.name.StartsWith("Catalog label ", StringComparison.Ordinal)).ToArray();
         Require(images.Length == CatalogCount && labels.Length == CatalogCount, "Catalog shows all 32 sprite/name pairs in a four-column, eight-row grid");
         for (int i = 0; i < CatalogCount; i++)
         {
@@ -764,6 +766,10 @@ public static class CandySortEditor
     private static void VerifyRetainedSceneViews()
     {
         var scene = controller.gameObject.scene;
+        Require(scene.GetRootGameObjects().All(root => root.GetComponentsInChildren<UnityEngine.UI.Text>(true).Length == 0),
+            "No legacy UI Text components exist in the runtime scene (including inactive objects)");
+        Require(controller.GetComponentsInChildren<TextMeshProUGUI>(true).Length > 0,
+            "Runtime UI labels use TextMeshProUGUI");
         Require(UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None).Count(c => c.gameObject.scene == scene) == 1,
             "Play mode retains one authored Canvas without duplication");
         Require(UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None).Count(c => c.gameObject.scene == scene) == 1 &&
@@ -781,7 +787,7 @@ public static class CandySortEditor
         var dish = images.First(i => i.name == "Porcelain dish").rectTransform;
         var sample = images.First(i => i.name == "Flavor sample").rectTransform;
         Require(sample.anchoredPosition.y + sample.rect.height * .5f < dish.anchoredPosition.y - dish.rect.height * .5f, "Flavor icon sits below the dish");
-        var texts = tile.GetComponentsInChildren<Text>();
+        var texts = tile.GetComponentsInChildren<TextMeshProUGUI>();
         var quantity = texts.Single(text => text.name == "Plate count");
         Require(quantity.text == count + "/3", "Plate quantity reads exactly " + count + "/3, including collection and undo");
         Require(quantity.rectTransform.anchoredPosition.y + quantity.rectTransform.rect.height * .5f <

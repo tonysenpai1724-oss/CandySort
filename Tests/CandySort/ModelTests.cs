@@ -7,6 +7,7 @@ internal static class ModelTests
     public static void Campaign()
     {
         Check.That(CandySortCampaign.LevelCount == 30, "Campaign must contain exactly 30 levels.");
+        BubbleVariety();
         string[] kinds =
         {
             "SwirlLollipop", "PurpleJellybean", "LemonCandy", "GummyBearRed",
@@ -28,8 +29,8 @@ internal static class ModelTests
         }
         // Authored progression, independent of the campaign implementation. Seeds are
         // intentionally not frozen here: default boards are instead verified by playing them.
-        int[] orders = { 27, 28, 29, 30, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65 };
-        int[] flavors = { 2, 3, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
+        int[] orders = { 10, 28, 29, 30, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65 };
+        int[] flavors = { 3, 7, 8, 8, 9, 9, 10, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
         int[] mixing = { 0, 15, 20, 30, 75, 25, 35, 40, 45, 80, 45, 50, 55, 60, 85, 55, 60, 65, 70, 90, 65, 70, 75, 80, 95, 75, 80, 85, 90, 95 };
         int[] hardOpenings = { 15, 16, 14, 16, 14, 15 };
         var fingerprints = new HashSet<string>();
@@ -42,8 +43,8 @@ internal static class ModelTests
             Check.That(definition.OrderCount == orders[level - 1] && definition.FlavorCount == flavors[level - 1] && definition.Mixing == mixing[level - 1], $"Authored generation settings changed at {level}.");
             Check.That(definition.IsHard == (level % 5 == 0), $"Hard stage cadence changed at {level}.");
             Check.That(definition.ActivePlates == (level <= 2 ? 2 : level <= 4 ? 3 : 4), $"Plate unlock progression changed at {level}.");
-            Check.That(definition.MinBubbleSize == (level == 1 ? 3 : 2), $"Minimum bubble size changed at {level}.");
-            Check.That(definition.MaxBubbleSize == (level <= 2 ? 3 : level == 3 ? 4 : 5), $"Maximum bubble size changed at {level}.");
+            Check.That(definition.MinBubbleSize == (level <= 4 ? 1 : 2), $"Minimum bubble size changed at {level}.");
+            Check.That(definition.MaxBubbleSize == 5, $"Maximum bubble size changed at {level}.");
             string expectedLabel = level <= 3 ? "LÀM QUEN" : definition.IsHard ? "MÀN KHÓ" : level <= 8 ? "DỄ" : level <= 19 ? "TRUNG BÌNH" : "THỬ THÁCH";
             Check.That(definition.DifficultyLabel == expectedLabel, $"Difficulty label changed at {level}.");
             Check.That(definition.Seed != 0, $"Missing authored seed at {level}.");
@@ -59,6 +60,11 @@ internal static class ModelTests
             var model = new CandySortModel(level);
             Opening(model);
             campaignKinds.UnionWith(model.Bubbles.SelectMany(b => b.Candies));
+            if (level <= 4)
+            {
+                Check.That(model.Bubbles.Any(b => b.Candies.Count >= 4), $"Early board lacks larger bubbles at {level}.");
+                Check.That(model.Bubbles.Select(b => b.Candies.Count).Distinct().Count() >= 2, $"Early board lacks size variety at {level}.");
+            }
             if (definition.IsHard)
             {
                 Check.That(model.Bubbles.Any(b => b.Candies.Distinct().Count() == 1) && model.Bubbles.Any(b => b.Candies.Distinct().Count() > 1), $"Hard board must mix pure and mixed groups at {level}.");
@@ -75,8 +81,63 @@ internal static class ModelTests
             Check.That(fingerprint == Check.State(new CandySortModel(level, 0)), $"Explicit zero does not select default seed at {level}.");
         }
         Check.That(campaignKinds.SetEquals(Enum.GetValues<CandyKind>()), "Campaign does not generate all 32 candy kinds.");
-        Check.That(new CandySortModel(1).TotalCandies == 81 && new CandySortModel(30).TotalCandies == 195, "Campaign candy-total boundaries changed.");
+        Check.That(new CandySortModel(1).TotalCandies == 30 && new CandySortModel(30).TotalCandies == 195, "Campaign candy-total boundaries changed.");
         Check.That(CandySortCampaign.GetLevel(29).FlavorCount == 31 && CandySortCampaign.GetLevel(30).FlavorCount == 32, "Finale must unlock the final candy and include the complete catalog.");
+    }
+
+    private static void BubbleVariety()
+    {
+        var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var build = typeof(CandySortModel).GetMethod("BuildBubbles", flags);
+        var randomType = typeof(CandySortModel).GetNestedType("DeterministicRandom", System.Reflection.BindingFlags.NonPublic);
+        int[][] inventories = { new[] { 12 }, new[] { 7, 5 }, new[] { 10, 1, 1 }, new[] { 2, 1, 1, 1 }, new[] { 1, 1, 1, 1, 1 }, new[] { 1, 1, 1, 1, 1, 1 }, new[] { 4, 4, 4, 4, 4, 4 } };
+        foreach (int level in new[] { 2, 5, 9, 15, 30 })
+        foreach (int[] counts in inventories)
+        foreach (uint seed in Enumerable.Range(1, 16).Select(seed => (uint)seed))
+        {
+            string previous = null;
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                var model = new CandySortModel(level);
+                var groups = (List<CandySortModel.Bubble>)typeof(CandySortModel).GetField("bubbles", flags).GetValue(model);
+                groups.Clear();
+                var inventory = counts.SelectMany((count, kind) => Enumerable.Repeat((CandyKind)kind, count)).ToList();
+                var expected = inventory.OrderBy(kind => kind).ToArray();
+                build.Invoke(model, new[] { (object)inventory, Activator.CreateInstance(randomType, seed) });
+                Check.That(inventory.Count == 0 && groups.Count > 0, "Varied bubble builder did not consume its inventory.");
+                Check.That(groups.SelectMany(b => b.Candies).OrderBy(kind => kind).SequenceEqual(expected), "Varied bubble builder changed per-kind inventory.");
+                Check.That(groups.All(b => b.Candies.Count >= model.Definition.MinBubbleSize && b.Candies.Count <= 5), "Varied bubble builder emitted an invalid tail.");
+                Check.That(groups.Where(b => b.Candies.Count >= 4).All(b => b.Candies.Distinct().Count() >= 3 && b.Candies.Distinct().Count() <= 4), "Varied bubble builder failed its large-group diversity target.");
+                SmallBubbleVariety(groups);
+                string current = string.Join('|', groups.Select(b => $"{b.Id}/{b.Lane}:{string.Join(',', b.Candies)}"));
+                Check.That(repeat == 0 || current == previous, "Varied bubble builder is not deterministic.");
+                previous = current;
+            }
+        }
+    }
+
+    private static void SmallBubbleVariety(IReadOnlyList<CandySortModel.Bubble> bubbles)
+    {
+        var remaining = bubbles.SelectMany(b => b.Candies).GroupBy(kind => kind).ToDictionary(group => group.Key, group => group.Count());
+        int small = 0;
+        foreach (var bubble in bubbles)
+        {
+            int size = bubble.Candies.Count;
+            if (size == 2 || size == 3)
+            {
+                bool mixed = small++ % 2 == 0;
+                int kinds = bubble.Candies.Distinct().Count();
+                if (mixed && remaining.Count >= 2)
+                    Check.That(kinds >= 2, "Small mixed bubble contains only one kind despite available alternatives.");
+                else if (!mixed && remaining.Values.Any(count => count >= size))
+                    Check.That(kinds == 1, "Small matching bubble was unnecessarily mixed.");
+            }
+            foreach (CandyKind kind in bubble.Candies)
+            {
+                remaining[kind]--;
+                if (remaining[kind] == 0) remaining.Remove(kind);
+            }
+        }
     }
 
     private static void Opening(CandySortModel model)
@@ -101,7 +162,22 @@ internal static class ModelTests
         Check.That(model.PendingOrders.Concat(model.Plates.Where(p => p.Kind.HasValue).Select(p => p.Kind.Value)).Distinct().OrderBy(k => k).Select(k => (int)k).SequenceEqual(Enumerable.Range(0, model.Definition.FlavorCount)), $"Initial orders do not cover the unlocked prefix at level {model.Level}.");
         int available = model.Bubbles.Sum(b => b.Candies.Count(c => !model.Plates.Any(p => p.Kind == c)));
         int expected = Math.Min(model.Definition.OpeningTrayCandies, available);
-        Check.That(model.Bubbles.All(b => b.Candies.Count >= 2 && b.Candies.Count <= 5), $"Initial bubble outside 2..5 at level {model.Level}.");
+        Check.That(available > 0 && model.Definition.FlavorCount > model.ActivePlates, $"Initial flavor pool must include candies without an active plate at level {model.Level}.");
+        if (model.Level >= 2 && model.Level <= 6)
+            Check.That(model.Definition.FlavorCount - model.ActivePlates <= model.Temp.Length, $"Early unmatched flavor count exceeds tray capacity at level {model.Level}.");
+        if (model.Level == 2)
+            Check.That(model.TotalCandies == 84 && remaining.Values.Where(count => count > 0).All(count => count == 12), "Level two must spread its 84 candies across seven balanced flavors.");
+        int minimumBubbleSize = model.Level <= 4 ? 1 : 2;
+        Check.That(model.Bubbles.All(b => b.Candies.Count >= minimumBubbleSize && b.Candies.Count <= 5), $"Initial bubble outside {minimumBubbleSize}..5 at level {model.Level}.");
+        if (model.Level >= 2)
+        {
+            Check.That(model.Bubbles.Where(b => b.Candies.Count >= 4).All(b => b.Candies.Distinct().Count() >= 3 && b.Candies.Distinct().Count() <= 4), $"Large bubble must contain 3..4 distinct flavors at level {model.Level}.");
+            int openingGroups = (expected + Math.Min(8, expected)) / 2;
+            var regular = model.Bubbles.Skip(openingGroups).ToArray();
+            SmallBubbleVariety(regular);
+            var small = regular.Where(b => b.Candies.Count == 2 || b.Candies.Count == 3).ToArray();
+            Check.That(small.Any(b => b.Candies.Distinct().Count() == 1) && small.Any(b => b.Candies.Distinct().Count() > 1), $"Level {model.Level} must include both mixed and matching small bubbles.");
+        }
         if (expected == 0) return;
         int served = Math.Min(8, expected);
         int openingCandies = expected + served;

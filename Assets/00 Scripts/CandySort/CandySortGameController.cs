@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -20,13 +21,13 @@ namespace CandySort
         [SerializeField] private Sprite[] interfaceSprites;
         [SerializeField] private Camera sceneCamera;
         [SerializeField] private RectTransform root, plateLayer, tempLayer, board, bubbleLayer, modalLayer, effectLayer;
-        [SerializeField] private Text levelLabel, difficultyLabel, progressLabel, hintLabel, queueLabel;
+        [SerializeField] private TextMeshProUGUI levelLabel, difficultyLabel, progressLabel, hintLabel, queueLabel;
         [SerializeField] private Image progressFill;
         [SerializeField] private Button helpButton, restartButton, undoButton;
         [SerializeField] private PlateView[] plateViews;
         [SerializeField] private TempView[] tempViews;
         [SerializeField] private List<BubbleView> sceneBubbles = new List<BubbleView>();
-        private Font font;
+        private TMP_FontAsset font;
         private bool busy;
         private CandyBubbleLayout layout;
         private readonly Dictionary<int, float> originalRadii = new Dictionary<int, float>();
@@ -53,7 +54,7 @@ namespace CandySort
             public RectTransform Rect;
             public Image Dish, Ring, Sample, LockIcon;
             public Image[] Candies;
-            public Text Count, Locked, Served;
+            public TextMeshProUGUI Count, Locked, Served;
             public Graphic Unlock;
         }
 
@@ -62,7 +63,7 @@ namespace CandySort
         {
             public RectTransform Rect;
             public Button Candy;
-            public Text Empty;
+            public TextMeshProUGUI Empty;
         }
 
         [System.Serializable]
@@ -105,7 +106,7 @@ namespace CandySort
         {
             CandySortArt.SetCandySprites(candySprites);
             CandySortArt.SetInterfaceSprites(interfaceSprites);
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
             if (sceneCamera == null) sceneCamera = Camera.main;
             if (sceneCamera == null)
             {
@@ -131,6 +132,7 @@ namespace CandySort
 
         private static void BindClick(Button button, UnityEngine.Events.UnityAction action)
         {
+            if(button == null || action == null) return;
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(action);
         }
@@ -201,14 +203,14 @@ namespace CandySort
                     new Color(.6f, .92f, 1, .28f), CandySortArt.Circle);
                 dot.raycastTarget = false;
             }
-            Label(root, "SWEET BUBBLES", new Vector2(0, 23), new Vector2(480, 25), 14, CandySortArt.Hex("7ED9EA"), FontStyle.Bold);
-            Label(root, "Candy Sort", new Vector2(0, 63), new Vector2(490, 64), 45, CandySortArt.Ink, FontStyle.Bold);
+            Label(root, "SWEET BUBBLES", new Vector2(0, 23), new Vector2(480, 25), 14, CandySortArt.Hex("7ED9EA"), FontStyles.Bold);
+            Label(root, "Candy Sort", new Vector2(0, 63), new Vector2(490, 64), 45, CandySortArt.Ink, FontStyles.Bold);
             helpButton = Button(root, "?", new Vector2(302, 62), new Vector2(54, 54), CandySortArt.Hex("176582"), CandySortArt.Ink, 25, null);
             var levelPill = Panel(root, "Level pill", new Vector2(0, 118), new Vector2(178, 37), CandySortArt.Hex("155675"));
-            levelLabel = Label(levelPill, "MÀN 01", Vector2.zero, new Vector2(170, 35), 19, CandySortArt.Hex("FFDD93"), FontStyle.Bold, true);
-            difficultyLabel = Label(root, "LÀM QUEN", new Vector2(0, 156), new Vector2(660, 27), 19, muted, FontStyle.Bold);
+            levelLabel = Label(levelPill, "MÀN 01", Vector2.zero, new Vector2(170, 35), 19, CandySortArt.Hex("FFDD93"), FontStyles.Bold, true);
+            difficultyLabel = Label(root, "LÀM QUEN", new Vector2(0, 156), new Vector2(660, 27), 19, muted, FontStyles.Bold);
             plateLayer = NewRect(root, "Candy plates", new Vector2(0, 244), new Vector2(680, 148));
-            Label(root, "KHAY TẠM", new Vector2(-222, 340), new Vector2(190, 25), 16, CandySortArt.Hex("FFDD93"), FontStyle.Bold);
+            Label(root, "KHAY TẠM", new Vector2(-222, 340), new Vector2(190, 25), 16, CandySortArt.Hex("FFDD93"), FontStyles.Bold);
             Label(root, "Tự chuyển khi có đĩa đúng vị", new Vector2(102, 340), new Vector2(430, 25), 16, muted);
             tempLayer = NewRect(root, "Temporary tray", new Vector2(0, 387), new Vector2(650, 68));
             Panel(root, "Jar shadow", new Vector2(0, 818), new Vector2(692, 702), CandySortArt.Hex("041D34"));
@@ -233,7 +235,7 @@ namespace CandySort
             restartButton = Button(root, "CHƠI LẠI", new Vector2(-230, 1234), new Vector2(180, 56), cream, CandySortArt.Ink, 17, null);
             undoButton = Button(root, "HOÀN TÁC", new Vector2(0, 1234), new Vector2(210, 56), CandySortArt.Hex("158CB0"), Color.white, 18, Undo);
             var progress = Panel(root, "Order progress", new Vector2(230, 1234), new Vector2(180, 56), cream);
-            progressLabel = Label(progress, "", new Vector2(0, -5), new Vector2(170, 35), 17, CandySortArt.Ink, FontStyle.Bold, true);
+            progressLabel = Label(progress, "", new Vector2(0, -5), new Vector2(170, 35), 17, CandySortArt.Ink, FontStyles.Bold, true);
             var bar = Panel(progress, "Track", new Vector2(0, 17), new Vector2(135, 5), CandySortArt.Hex("103C58"));
             Center(bar);
             progressFill = Image(bar, "Filled", Vector2.zero, new Vector2(135, 5), CandySortArt.Hex("71E0E7"), CandySortArt.Rounded);
@@ -281,7 +283,7 @@ namespace CandySort
             layout = new CandyBubbleLayout(bubbleLayer.rect.width - 8, model.Level);
             layout.Reset(model.Bubbles.Select(b => new CandyBubbleLayout.Body(b.Id, originalRadii[b.Id])));
             Render(true);
-            hintLabel.text = model.Definition.HelpText;
+            if (hintLabel != null) hintLabel.text = model.Definition.HelpText;
         }
 
         private void Render(bool initial = false)
@@ -289,8 +291,11 @@ namespace CandySort
             RenderPlates();
             RenderTemp();
             levelLabel.text = "MÀN " + model.Level.ToString("00") + " / " + CandySortCampaign.LevelCount;
-            difficultyLabel.text = model.Definition.DifficultyLabel;
-            difficultyLabel.color = model.Definition.IsHard ? CandySortArt.Hex("FFCB79") : muted;
+            if (difficultyLabel != null)
+            {
+                difficultyLabel.text = model.Definition.DifficultyLabel;
+                difficultyLabel.color = model.Definition.IsHard ? CandySortArt.Hex("FFCB79") : muted;
+            }
             progressLabel.text = model.CompletedOrders + " / " + model.TargetOrders + " ĐĨA";
             progressFill.rectTransform.sizeDelta = new Vector2(135f * model.CompletedOrders / model.TargetOrders, 5);
             undoButton.interactable = model.CanUndo && !busy;
@@ -384,21 +389,21 @@ namespace CandySort
                 for (int c = 0; c < view.Candies.Length; c++)
                     view.Candies[c] = BindImage(view.Candies[c], tile, "Plate candy " + c, PlateCandyOffset(c), new Vector2(40, 40), CandySortArt.Candy(CandyKind.SwirlLollipop));
                 view.Sample = BindImage(view.Sample, tile, "Flavor sample", new Vector2(-27, 47), new Vector2(34, 34), CandySortArt.Candy(CandyKind.SwirlLollipop));
-                if (view.Count == null) view.Count = FindView<Text>(tile, "Plate count");
+                if (view.Count == null) view.Count = FindView<TextMeshProUGUI>(tile, "Plate count");
                 if (view.Count == null)
                 {
-                    view.Count = Label(tile, "0/3", new Vector2(24, 47), new Vector2(60, 34), 21, CandySortArt.Ink, FontStyle.Bold, true);
+                    view.Count = Label(tile, "0/3", new Vector2(24, 47), new Vector2(60, 34), 21, CandySortArt.Ink, FontStyles.Bold, true);
                     view.Count.gameObject.name = "Plate count";
                 }
                 if (view.LockIcon == null) view.LockIcon = FindView<Image>(tile, "Lock icon") ?? FindView<Image>(tile, "Image");
-                if (view.Locked == null) view.Locked = FindView<Text>(tile, "Text · · ·");
-                // Graphic accepts both legacy Text and the authored TextMeshPro unlock labels.
+                if (view.Locked == null) view.Locked = FindView<TextMeshProUGUI>(tile, "Text · · ·");
+                // Keep the authored unlock graphic and its styling when rebinding.
                 if (view.Unlock == null) view.Unlock = FindView<Graphic>(tile, "Text MỞ MÀN " + (i == 2 ? 3 : 5));
-                if (view.Served == null) view.Served = FindView<Text>(tile, "Text ĐÃ PHỤC VỤ");
+                if (view.Served == null) view.Served = FindView<TextMeshProUGUI>(tile, "Text ĐÃ PHỤC VỤ");
                 if (!created) continue;
-                view.Locked = Label(tile, "· · ·", new Vector2(0, -18), new Vector2(135, 65), 37, muted, FontStyle.Bold, true);
-                view.Unlock = Label(tile, "MỞ MÀN " + (i == 2 ? 3 : 5), new Vector2(0, 42), new Vector2(150, 30), 15, muted, FontStyle.Bold, true);
-                view.Served = Label(tile, "ĐÃ PHỤC VỤ", Vector2.zero, new Vector2(140, 50), 17, muted, FontStyle.Bold, true);
+                view.Locked = Label(tile, "· · ·", new Vector2(0, -18), new Vector2(135, 65), 37, muted, FontStyles.Bold, true);
+                view.Unlock = Label(tile, "MỞ MÀN " + (i == 2 ? 3 : 5), new Vector2(0, 42), new Vector2(150, 30), 15, muted, FontStyles.Bold, true);
+                view.Served = Label(tile, "ĐÃ PHỤC VỤ", Vector2.zero, new Vector2(140, 50), 17, muted, FontStyles.Bold, true);
             }
             platePositions.Clear();
             platePositions.AddRange(plateViews.Select(view => view.Rect));
@@ -493,7 +498,7 @@ namespace CandySort
                     Center(view.Rect);
                     var outline = Image(view.Rect, "Slot inset", Vector2.zero, new Vector2(61, 56), CandySortArt.Hex("0B324D"), CandySortArt.Circle);
                     Center(outline.rectTransform);
-                    view.Empty = Label(view.Rect, "+", Vector2.zero, new Vector2(50, 45), 25, CandySortArt.Hex("71B2CF"), FontStyle.Normal, true);
+                    view.Empty = Label(view.Rect, "+", Vector2.zero, new Vector2(50, 45), 25, CandySortArt.Hex("71B2CF"), FontStyles.Normal, true);
                 }
                 if (view.Candy == null) view.Candy = FindView<Button>(view.Rect, "Button ");
                 if (view.Candy == null)
@@ -510,7 +515,7 @@ namespace CandySort
                 candyImage.preserveAspect = true;
                 candyImage.raycastTarget = true;
                 view.Candy.targetGraphic = candyImage;
-                if (view.Empty == null) view.Empty = FindView<Text>(view.Rect, "Text +");
+                if (view.Empty == null) view.Empty = FindView<TextMeshProUGUI>(view.Rect, "Text +");
                 // The new slot artwork already includes its inset and plus sign.
                 if (HasAuthoredSlotArt(view)) SetVisible(FindView<Image>(view.Rect, "Slot inset"), false);
             }
@@ -551,7 +556,7 @@ namespace CandySort
             var previousBoard = CaptureBoard();
             if (!model.TryTake(id, index))
             {
-                hintLabel.text = "Khay tạm đã đầy. Chọn vị đang có trên đĩa!";
+                if (hintLabel != null) hintLabel.text = "Khay tạm đã đầy. Chọn vị đang có trên đĩa!";
                 StartCoroutine(Nudge(source));
                 return;
             }
@@ -583,32 +588,17 @@ namespace CandySort
             if (plateTarget != null)
             {
                 AddPlateCandy(plateTarget, kind, plateCount);
-                plateTarget.Find("Plate count").GetComponent<Text>().text = (plateCount + 1) + "/3";
+                plateTarget.Find("Plate count").GetComponent<TextMeshProUGUI>().text = (plateCount + 1) + "/3";
             }
             Destroy(flight.gameObject);
             // Show the complete set of three before replacing the order.
             if (plateTarget != null && plateCount == 2) yield return new WaitForSecondsRealtime(.22f);
             busy = false;
             Render();
-            hintLabel.text = model.CompletedOrders > completed ? "Ngọt ngào! Đủ bộ 3, đĩa mới đã sẵn sàng." : "Chạm vào từng viên kẹo trong bong bóng";
+            if (hintLabel != null) hintLabel.text = model.CompletedOrders > completed ? "Ngọt ngào! Đủ bộ 3, đĩa mới đã sẵn sàng." : "Chạm vào từng viên kẹo trong bong bóng";
             if (model.CompletedOrders > completed) StartCoroutine(Celebrate(destination));
             if (model.IsWon) CompleteLevel();
-            else if (IsBoardBlocked()) ShowResult(false);
-        }
-
-        private bool IsBoardBlocked()
-        {
-            if (model.Temp.Any(t => !t.HasValue)) return false;
-            foreach (var bubble in model.Bubbles)
-            {
-                var view = bubbles[bubble.Id];
-                for (int i = 0; i < bubble.Candies.Count; i++)
-                {
-                    float centerY = view.Target.y - CandyOffset(view.InitialCount, candySlots[bubble.Id][i], view.Diameter).y;
-                    if (centerY >= 0 && centerY <= board.rect.height - 12 && model.Plates.Any(p => p.Active && p.Kind == bubble.Candies[i])) return false;
-                }
-            }
-            return true;
+            else if (model.Temp.All(t => t.HasValue)) ShowResult(false);
         }
 
         private static Vector2 CandyOffset(int count, int index, float diameter)
@@ -628,7 +618,7 @@ namespace CandySort
                 Render();
                 if (model.IsWon) CompleteLevel();
             }
-            else hintLabel.text = "Viên này đang chờ đĩa đúng vị. Hãy chọn kẹo khác.";
+            else if (hintLabel != null) hintLabel.text = "Viên này đang chờ đĩa đúng vị. Hãy chọn kẹo khác.";
         }
 
         private BoardSnapshot CaptureBoard()
@@ -649,7 +639,7 @@ namespace CandySort
             foreach (var entry in snapshot.CandySlots) candySlots.Add(entry.Key, entry.Value);
             Clear(modalLayer);
             Render();
-            hintLabel.text = "Đã hoàn tác một lượt.";
+            if (hintLabel != null) hintLabel.text = "Đã hoàn tác một lượt.";
         }
 
         private void CompleteLevel()
@@ -683,8 +673,8 @@ namespace CandySort
             shade.GetComponent<Image>().raycastTarget = true;
             var card = Panel(shade, "Result card", Vector2.zero, new Vector2(580, 430), cream);
             Center(card);
-            Label(card, campaignWon ? "HOÀN THÀNH 30 MÀN!" : won ? "THẬT NGỌT NGÀO!" : "KHAY TẠM ĐÃ ĐẦY", new Vector2(0, -129), new Vector2(550, 60), 32, CandySortArt.Ink, FontStyle.Bold, true);
-            Label(card, campaignWon ? "Bạn đã hoàn thành hành trình Candy Sort.\nCảm ơn bạn đã chơi!" : won ? "Bạn đã phân loại hết kẹo của màn này." : "Không còn nước đi phù hợp.\nHoàn tác để thử một cách xếp khác nhé.", new Vector2(0, -30), new Vector2(500, 100), 23, muted, FontStyle.Normal, true);
+            Label(card, campaignWon ? "HOÀN THÀNH 30 MÀN!" : won ? "THẬT NGỌT NGÀO!" : "KHAY TẠM ĐÃ ĐẦY", new Vector2(0, -129), new Vector2(550, 60), 32, CandySortArt.Ink, FontStyles.Bold, true);
+            Label(card, campaignWon ? "Bạn đã hoàn thành hành trình Candy Sort.\nCảm ơn bạn đã chơi!" : won ? "Bạn đã phân loại hết kẹo của màn này." : "Cả 5 ô tạm đã đầy.\nHoàn tác để thử một cách xếp khác nhé.", new Vector2(0, -30), new Vector2(500, 100), 23, muted, FontStyles.Normal, true);
             var button = Button(card, campaignWon ? "CHƠI LẠI MÀN 30" : won ? "MÀN TIẾP THEO  →" : "HOÀN TÁC", new Vector2(0, 77), new Vector2(430, 66), CandySortArt.Hex("168BB0"), Color.white, 22, () => { if (campaignWon) LoadLevel(CandySortCampaign.LevelCount); else if (won) LoadLevel(model.Level + 1); else Undo(); });
             Center(button.GetComponent<RectTransform>());
             if (campaignWon)
@@ -708,8 +698,8 @@ namespace CandySort
             shade.GetComponent<Image>().raycastTarget = true;
             var card = Panel(shade, "How to play", Vector2.zero, new Vector2(600, 670), cream);
             Center(card);
-            Label(card, "MỘT CHÚT NGỌT NGÀO", new Vector2(0, -248), new Vector2(560, 70), 29, CandySortArt.Ink, FontStyle.Bold, true);
-            Label(card, "1. Chạm từng viên kẹo trong bong bóng.\n\n2. Kẹo đúng vị sẽ bay lên đĩa. Mỗi đĩa nhận 3 viên rồi đổi sang vị mới.\n\n3. Kẹo chưa có đĩa sẽ vào 5 ô tạm và tự chuyển khi đĩa phù hợp xuất hiện.\n\n4. Bong bóng hết kẹo sẽ vỡ; các bong bóng phía trên rơi xuống.\n\nĐĩa mới mở ở màn 3 và màn 5.", new Vector2(0, -5), new Vector2(510, 450), 22, CandySortArt.Ink, FontStyle.Normal, true);
+            Label(card, "MỘT CHÚT NGỌT NGÀO", new Vector2(0, -248), new Vector2(560, 70), 29, CandySortArt.Ink, FontStyles.Bold, true);
+            Label(card, "1. Chạm từng viên kẹo trong bong bóng.\n\n2. Kẹo đúng vị sẽ bay lên đĩa. Mỗi đĩa nhận 3 viên rồi đổi sang vị mới.\n\n3. Kẹo chưa có đĩa sẽ vào 5 ô tạm và tự chuyển khi đĩa phù hợp xuất hiện. Đầy cả 5 ô là thua.\n\n4. Bong bóng hết kẹo sẽ vỡ; các bong bóng phía trên rơi xuống.\n\nĐĩa mới mở ở màn 3 và màn 5.", new Vector2(0, -5), new Vector2(510, 450), 22, CandySortArt.Ink, FontStyles.Normal, true);
             var close = Button(card, "BẮT ĐẦU THÔI", new Vector2(0, 263), new Vector2(450, 65), CandySortArt.Hex("168BB0"), Color.white, 21, () => Clear(modalLayer));
             Center(close.GetComponent<RectTransform>());
         }
@@ -795,19 +785,19 @@ namespace CandySort
             image.raycastTarget = false;
             return image;
         }
-        private Text Label(Transform parent, string text, Vector2 position, Vector2 size, int fontSize, Color color, FontStyle style = FontStyle.Normal, bool center = false)
+        private TextMeshProUGUI Label(Transform parent, string text, Vector2 position, Vector2 size, int fontSize, Color color, FontStyles style = FontStyles.Normal, bool center = false)
         {
             var rect = NewRect(parent, "Text " + text, position, size);
             if (center) Center(rect);
-            var label = rect.gameObject.AddComponent<Text>();
+            var label = rect.gameObject.AddComponent<TextMeshProUGUI>();
             label.font = font;
             label.text = text;
             label.fontSize = fontSize;
             label.color = color;
             label.fontStyle = style;
-            label.alignment = TextAnchor.MiddleCenter;
-            label.horizontalOverflow = HorizontalWrapMode.Wrap;
-            label.verticalOverflow = VerticalWrapMode.Truncate;
+            label.alignment = TextAlignmentOptions.Center;
+            label.textWrappingMode = TextWrappingModes.Normal;
+            label.overflowMode = TextOverflowModes.Truncate;
             label.raycastTarget = false;
             return label;
         }
@@ -823,7 +813,7 @@ namespace CandySort
             colors.disabledColor = new Color(.85f, .85f, .85f, .45f);
             button.colors = colors;
             if (action != null) button.onClick.AddListener(action);
-            if (!string.IsNullOrEmpty(text)) Label(image.transform, text, Vector2.zero, size - new Vector2(10, 4), fontSize, textColor, FontStyle.Bold, true);
+            if (!string.IsNullOrEmpty(text)) Label(image.transform, text, Vector2.zero, size - new Vector2(10, 4), fontSize, textColor, FontStyles.Bold, true);
             return button;
         }
         private static void RemoveView(GameObject target)

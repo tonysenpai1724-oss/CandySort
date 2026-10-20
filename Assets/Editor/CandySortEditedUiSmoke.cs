@@ -1,5 +1,5 @@
 // Explicit, editor-only regression probe for the user's authored Candy Sort UI.
-// Never saves a scene, changes PlayerPrefs, destroys UI, or runs on ordinary imports/Play.
+// Never saves a scene, changes PlayerPrefs, destroys authored UI, or runs on ordinary imports/Play.
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using CandySort;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -40,7 +41,7 @@ public static class CandySortEditedUiSmoke
     private static int stage, phase;
     private static double nextTick, screenshotDeadline;
     private static string screenshot;
-    private static string beforeMove;
+    private static string beforeMove, boardBefore;
     private static int moveBubble, moveIndex, trayBefore;
     private static CandyKind moveKind;
 
@@ -97,6 +98,7 @@ public static class CandySortEditedUiSmoke
                 Check(!SessionState.GetBool("CandySortSmokeActive", false) && !File.Exists("Temp/CandySortSmoke.request"),
                     "Do not run the existing CandySortEditor smoke at the same time.");
                 controller = FindController();
+                VerifyTextComponents();
                 authored = CaptureAuthored();
                 SessionState.SetString(SnapshotKey, JsonUtility.ToJson(authored));
                 SessionState.SetString(ErrorKey, "");
@@ -205,6 +207,7 @@ public static class CandySortEditedUiSmoke
         }
         else if (phase == 2)
         {
+            ProbeDialogs();
             ProbeRecovery();
             ProbeOptionalAndLegacy();
             Load(4); // Three plates / four flavors guarantees a genuinely unmatched tray candidate.
@@ -215,10 +218,7 @@ public static class CandySortEditedUiSmoke
             moveBubble = candidate.Id;
             moveIndex = candidate.Index;
             moveKind = candidate.Kind;
-            object bubble = ((IDictionary)Get(controller, "bubbles"))[moveBubble];
-            var slots = (IDictionary)Get(controller, "candySlots");
-            int originalSlot = (int)((IList)slots[moveBubble])[moveIndex];
-            Button button = ((IList)Get(bubble, "Buttons"))[originalSlot] as Button;
+            Button button = CandyButton(moveBubble, moveIndex);
             Check(button != null && button.gameObject.activeSelf, "Unmatched candy has its existing bound Button.");
             // Invoke the actual bound controller action, not model.TryTake or a fabricated tray state.
             button.onClick.Invoke();
@@ -241,7 +241,93 @@ public static class CandySortEditedUiSmoke
             phase = 4;
             nextTick = EditorApplication.timeSinceStartup + .3; // Catch asynchronous controller logs before reporting success.
         }
-        else Finish(true, "Levels 1/2/3/4/5/4/3/2/1; authored locks/dishes/layout/identities; reference recovery; array resize; optional texts; legacy rim/locks; tray and Undo.", true);
+        else if (phase == 4)
+        {
+            if ((bool)Get(controller, "busy")) { nextTick = EditorApplication.timeSinceStartup + .1; return; }
+            var modal = (RectTransform)Get(controller, "modalLayer");
+            trayBefore = Model.Temp.Count(k => k.HasValue);
+            Check(trayBefore < 5 && modal.childCount == 0, "Up to four occupied slots do not show a loss dialog.");
+            Check(PlayableCandy(true) != null, "A visible matching candy remains playable before filling the tray.");
+            Button button = PlayableCandy(false);
+            Check(button != null, "A visible unmatched candy can fill the next temp slot.");
+            beforeMove = ModelSignature();
+            boardBefore = BoardSignature();
+            button.onClick.Invoke();
+            Check((bool)Get(controller, "busy") && modal.childCount == 0,
+                "The loss dialog waits for the candy transfer to finish.");
+            phase = 5;
+            nextTick = EditorApplication.timeSinceStartup + .1;
+        }
+        else if (phase == 5)
+        {
+            if ((bool)Get(controller, "busy")) { nextTick = EditorApplication.timeSinceStartup + .1; return; }
+            Check(Model.Temp.Count(k => k.HasValue) == trayBefore + 1, "Each bound unmatched candy fills exactly one temp slot.");
+            VerifyStage(1);
+            if (trayBefore < 4) phase = 4;
+            else
+            {
+                Check(Model.Temp.All(k => k.HasValue) && !Model.IsBlocked,
+                    "Five slots are full even though the model still has a direct matching move.");
+                VerifyDialog("Result card", "KHAY TẠM ĐÃ ĐẦY");
+                Capture("edited-ui-temp-full");
+                phase = 6;
+            }
+            nextTick = EditorApplication.timeSinceStartup + .3;
+        }
+        else if (phase == 6)
+        {
+            var modal = (RectTransform)Get(controller, "modalLayer");
+            var undo = modal.GetComponentsInChildren<Button>().Single(button => button.name == "Button HOÀN TÁC");
+            undo.onClick.Invoke();
+            // Clear disables the modal immediately; Unity destroys its objects at the end of the frame.
+            Check(!modal.GetComponentsInChildren<Button>().Any() && Model.Temp.Count(k => k.HasValue) == 4,
+                "Loss-dialog Undo clears the modal and restores four occupied slots.");
+            Check(ModelSignature() == beforeMove && BoardSignature() == boardBefore,
+                "Loss-dialog Undo restores the exact pre-fifth-candy model, layout and candy slots.");
+            Check(PlayableCandy(true) != null, "Matching candy is playable again after loss-dialog Undo.");
+            VerifyStage(1);
+            Pass("Fifth temp slot causes loss after transfer despite a remaining matching move; dialog Undo restores exact state.");
+            Load(1);
+            phase = 7;
+            nextTick = EditorApplication.timeSinceStartup + .3;
+        }
+        else Finish(true, "Levels 1/2/3/4/5/4/3/2/1; authored locks/dishes/layout/identities; reference recovery; array resize; optional TMP captions; legacy rim/locks; tray and Undo; fifth-slot loss and exact dialog Undo; help/loss/win/final-win TMP dialogs; font/Vietnamese glyph coverage; text-fit warnings reported separately.", true);
+    }
+
+    private static Button CandyButton(int id, int index)
+    {
+        object bubble = ((IDictionary)Get(controller, "bubbles"))[id];
+        var slots = (IDictionary)Get(controller, "candySlots");
+        int originalSlot = (int)((IList)slots[id])[index];
+        return ((IList)Get(bubble, "Buttons"))[originalSlot] as Button;
+    }
+
+    private static Button PlayableCandy(bool matching)
+    {
+        Canvas.ForceUpdateCanvases();
+        var canvas = controller.GetComponentInChildren<Canvas>();
+        foreach (var bubble in Model.Bubbles)
+        for (int i = 0; i < bubble.Candies.Count; i++)
+        {
+            if (Model.Plates.Any(p => p.Active && p.Kind == bubble.Candies[i]) != matching) continue;
+            Button button = CandyButton(bubble.Id, i);
+            var pointer = new PointerEventData(EventSystem.current)
+            {
+                position = RectTransformUtility.WorldToScreenPoint(canvas.worldCamera, button.transform.position)
+            };
+            var hits = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(pointer, hits);
+            if (hits.Count > 0 && hits[0].gameObject.GetComponentInParent<Button>() == button) return button;
+        }
+        return null;
+    }
+
+    private static string BoardSignature()
+    {
+        var positions = ((CandyBubbleLayout)Get(controller, "layout")).Capture();
+        var slots = (IDictionary)Get(controller, "candySlots");
+        return string.Join(";", positions.OrderBy(pair => pair.Key).Select(pair => pair.Key + ":" + pair.Value.X + ":" + pair.Value.Y + ":" +
+            string.Join(",", ((IList)slots[pair.Key]).Cast<int>())));
     }
 
     private static AuthoredSnapshot CaptureAuthored()
@@ -264,8 +350,8 @@ public static class CandySortEditedUiSmoke
             if (i < 2) Check(dish.sprite.name == "erasebg-transformed_" + (i + 2), "Customized plate 1/2 Dish sprite matches the fixture.");
             else
             {
-                Check(Get(view, "Unlock") == null || Get(view, "Unlock") is Graphic,
-                    "Plate " + (i + 1) + " accepts a missing legacy Unlock Text or the authored TMP Graphic.");
+                Check(Get(view, "Unlock") == null || Get(view, "Unlock") is TextMeshProUGUI,
+                    "Plate " + (i + 1) + " accepts a missing Unlock caption or the authored TextMeshProUGUI.");
                 Check(icon != null && icon.sprite != null && icon.sprite.name == "erasebg-transformed_4",
                     "Plate " + (i + 1) + " has its authored lock Image / erasebg-transformed_4.");
             }
@@ -275,8 +361,31 @@ public static class CandySortEditedUiSmoke
         return result;
     }
 
+    private static void VerifyTextComponents()
+    {
+        Check(controller.gameObject.scene.GetRootGameObjects().All(root =>
+            root.GetComponentsInChildren<UnityEngine.UI.Text>(true).Length == 0),
+            "No legacy UI Text components remain in the authored/runtime scene, including inactive objects.");
+        foreach (string name in new[] { "levelLabel", "progressLabel", "queueLabel" })
+            Check(Get(controller, name) is TextMeshProUGUI, "Required HUD label uses TextMeshProUGUI: " + name);
+        foreach (string name in new[] { "difficultyLabel", "hintLabel" })
+            Check(Get(controller, name) == null || Get(controller, name) is TextMeshProUGUI,
+                "Optional HUD label uses TextMeshProUGUI when assigned: " + name);
+        foreach (object view in Views("plateViews"))
+        {
+            Check(Get(view, "Count") is TextMeshProUGUI, "Required plate Count uses TextMeshProUGUI.");
+            foreach (string name in new[] { "Locked", "Unlock", "Served" })
+                Check(Get(view, name) == null || Get(view, name) is TextMeshProUGUI,
+                    "Optional plate caption uses TextMeshProUGUI: " + name);
+        }
+        foreach (object view in Views("tempViews"))
+            Check(Get(view, "Empty") == null || Get(view, "Empty") is TextMeshProUGUI,
+                "Optional tray Empty caption uses TextMeshProUGUI.");
+    }
+
     private static void VerifyRetained()
     {
+        VerifyTextComponents();
         var scene = controller.gameObject.scene;
         Check(controllerReferences.All(pair => ReferenceEquals(Get(controller, pair.Key), pair.Value)),
             "Authored controller roots, layers, labels and buttons retain their references.");
@@ -323,7 +432,7 @@ public static class CandySortEditedUiSmoke
             Check(icon == (art.lockPath.Length == 0 ? null : At(art.lockPath).GetComponent<Image>()), "LockIcon binds the authored Image: " + (i + 1));
             if (icon != null) Visible(icon, !plate.Active, "LockIcon " + (i + 1));
             OptionalVisible(view, "Locked", !plate.Active && icon == null);
-            // TMP captions may accompany an authored icon; both legacy/TMP captions must disappear on unlock.
+            // TMP captions may accompany an authored icon; captions must disappear on unlock.
             if (icon == null || plate.Active) OptionalVisible(view, "Unlock", !plate.Active);
             bool serving = plate.Active && plate.Kind.HasValue;
             var dish = (Image)Get(view, "Dish");
@@ -332,7 +441,7 @@ public static class CandySortEditedUiSmoke
             var ring = (Image)Get(view, "Ring");
             if (ring != null) Visible(ring, serving && legacy, "Legacy rim " + (i + 1));
             Visible((Image)Get(view, "Sample"), serving, "Flavor sample " + (i + 1));
-            Visible((Text)Get(view, "Count"), serving, "Count " + (i + 1));
+            Visible((TextMeshProUGUI)Get(view, "Count"), serving, "Count " + (i + 1));
             OptionalVisible(view, "Served", plate.Active && !plate.Kind.HasValue);
             var candies = (Image[])Get(view, "Candies");
             Check(candies.Length == 3 && candies.All(c => c != null), "Three required Candy Images bound for plate " + (i + 1));
@@ -341,8 +450,8 @@ public static class CandySortEditedUiSmoke
                 Visible(candies[c], serving && c < plate.Count, "Plate candy " + i + "/" + c);
                 if (serving && c < plate.Count) Check(candies[c].sprite == CandySortArt.Candy(plate.Kind.Value), "Plate candy art matches its model flavor.");
             }
-            if (i >= 2 && Get(view, "Unlock") is Graphic unlock)
-                Check(unlock.transform.IsChildOf((RectTransform)Get(view, "Rect")), "Recovered TMP/legacy Unlock stays on its authored plate.");
+            if (i >= 2 && Get(view, "Unlock") is TextMeshProUGUI unlock)
+                Check(unlock.transform.IsChildOf((RectTransform)Get(view, "Rect")), "Recovered TMP Unlock stays on its authored plate.");
         }
         Array temps = Views("tempViews");
         for (int i = 0; i < 5; i++)
@@ -360,7 +469,88 @@ public static class CandySortEditedUiSmoke
             }
             if (Model.Temp[i].HasValue) Check(candy.GetComponent<Image>().sprite == CandySortArt.Candy(Model.Temp[i].Value), "Occupied tray uses the model candy artwork.");
         }
+        VerifyActiveText(controller.transform, "Stage " + level);
         Pass("Stage " + level + ": locks, custom dishes, legacy rims, tray and authored identities/layout.");
+    }
+
+    private static void ProbeDialogs()
+    {
+        Check(EditorApplication.isPlaying && !(bool)Get(controller, "rememberProgress"),
+            "Dialog probes run only on the Play copy with persistence disabled.");
+        var modal = (RectTransform)Get(controller, "modalLayer");
+        try
+        {
+            Load(1);
+            Invoke("ShowHelp");
+            VerifyDialog("How to play", "MỘT CHÚT NGỌT NGÀO");
+            var close = modal.GetComponentsInChildren<Button>().Single(button => button.name == "Button BẮT ĐẦU THÔI");
+            close.onClick.Invoke();
+            Check(!modal.GetComponentsInChildren<TextMeshProUGUI>().Any(), "Help close action clears its live labels.");
+            // ShowResult only builds its dialog. Never invoke CompleteLevel, save callbacks or progression buttons.
+            Invoke("ShowResult", false);
+            VerifyDialog("Result card", "KHAY TẠM ĐÃ ĐẦY");
+            Invoke("Clear", modal);
+            Invoke("ShowResult", true);
+            VerifyDialog("Result card", "THẬT NGỌT NGÀO!");
+            Invoke("Clear", modal);
+            Load(CandySortCampaign.LevelCount);
+            Invoke("ShowResult", true);
+            VerifyDialog("Result card", "HOÀN THÀNH 30 MÀN!");
+            Pass("Play-only help, loss, win and final-win TMP dialogs; no completion/save callbacks invoked.");
+        }
+        finally
+        {
+            Invoke("Clear", modal);
+            Load(1);
+        }
+        Check(!modal.GetComponentsInChildren<TextMeshProUGUI>().Any(), "Dialog probes leave no active modal labels before later stages.");
+        VerifyStage(1);
+    }
+
+    private static void VerifyDialog(string cardName, string heading)
+    {
+        var modal = (RectTransform)Get(controller, "modalLayer");
+        Transform card = modal.GetComponentsInChildren<Transform>().SingleOrDefault(item => item.name == cardName);
+        Check(card != null, "Runtime dialog exists: " + heading);
+        Check(card.GetComponentsInChildren<TextMeshProUGUI>().Any(label => label.text == heading),
+            "Runtime dialog heading uses TextMeshProUGUI: " + heading);
+        VerifyTextComponents();
+        VerifyActiveText(card, heading);
+    }
+
+    private static void VerifyActiveText(Transform scope, string context)
+    {
+        Canvas.ForceUpdateCanvases();
+        // Hidden/disabled/transparent optional decorations are not essential visible captions.
+        var labels = scope.GetComponentsInChildren<TextMeshProUGUI>().Where(label =>
+            label.isActiveAndEnabled && label.color.a > 0 && !string.IsNullOrWhiteSpace(label.text)).ToArray();
+        Check(labels.Length > 0, "Visible TMP labels exist: " + context);
+        int vietnameseGlyphs = 0, overflows = 0;
+        foreach (var label in labels)
+        {
+            string path = PathOf(label.transform);
+            Check(label.font != null, "Active TMP label has a font: " + path);
+            label.ForceMeshUpdate();
+            foreach (char character in label.text.Distinct().Where(c => !char.IsWhiteSpace(c) && !char.IsControl(c)))
+            {
+                Check(label.font.HasCharacter(character, true),
+                    "Missing TMP glyph U+" + ((int)character).ToString("X4") + " in " + label.font.name + ": " + path);
+                if (character > 127 && char.IsLetter(character)) vietnameseGlyphs++;
+            }
+            // Preferred size can use the maximum auto-size font, not the fitted mesh that is visible.
+            Vector2 rendered = label.textBounds.size;
+            Vector2 available = label.rectTransform.rect.size;
+            if (label.isTextOverflowing || label.isTextTruncated || rendered.x > available.x + 1 || rendered.y > available.y + 1)
+            {
+                overflows++;
+                File.AppendAllText(ReportPath, "WARNING: TMP text fit [" + context + "] " + path +
+                    "; font=" + label.font.name + "; rendered=" + rendered + "; rect=" + available +
+                    "; overflow=" + label.isTextOverflowing + "; truncated=" + label.isTextTruncated + "\n");
+            }
+        }
+        Check(vietnameseGlyphs > 0, "Vietnamese accented glyphs were exercised: " + context);
+        Pass(context + ": " + labels.Length + " active TMP labels have fonts and glyph coverage; " + overflows +
+            " text-fit warnings (hidden optional captions excluded).");
     }
 
     private static void ProbeRecovery()
@@ -428,7 +618,7 @@ public static class CandySortEditedUiSmoke
             {
                 Load(level); // Deliberately do not InitializeViews first: Render must tolerate null optional texts.
                 VerifyRetained();
-                Check(saved.All(item => Get(item.Item1, item.Item2) == null), "Null optional Text/Graphic/rim/icon references stay safe during Render.");
+                Check(saved.All(item => Get(item.Item1, item.Item2) == null), "Null optional TMP caption/rim/icon references stay safe during Render.");
             }
         }
         finally
@@ -449,12 +639,12 @@ public static class CandySortEditedUiSmoke
             }
         }
         finally { dish.sprite = customDish; Invoke("RenderPlates"); }
-        // Plate 1 has both old texts and no LockIcon. Change only its runtime Active flag for this render-only probe.
+        // Plate 1 has both TMP fallback captions and no LockIcon. Change only its runtime Active flag for this render-only probe.
         PropertyInfo active = typeof(CandySortModel.Plate).GetProperty("Active");
         CandySortModel.Plate plate = Model.Plates[0];
         try
         {
-            Check(Get(first, "LockIcon") == null && Get(first, "Locked") != null && Get(first, "Unlock") != null, "Legacy text fallback fixture exists.");
+            Check(Get(first, "LockIcon") == null && Get(first, "Locked") != null && Get(first, "Unlock") != null, "TMP lock/unlock fallback fixture exists.");
             active.GetSetMethod(true).Invoke(plate, new object[] { false });
             Invoke("RenderPlates");
             OptionalVisible(first, "Locked", true);
@@ -462,7 +652,7 @@ public static class CandySortEditedUiSmoke
         }
         finally { active.GetSetMethod(true).Invoke(plate, new object[] { true }); Invoke("RenderPlates"); }
         VerifyStage(1);
-        Pass("Optional Locked/Unlock/Served/Empty nulls, Circle/Ring rim compatibility and old Locked/Unlock fallback.");
+        Pass("Optional TMP Locked/Unlock/Served/Empty nulls, Circle/Ring rim compatibility and TMP Locked/Unlock fallback.");
     }
 
     private static RectTransform[] CurrentRects()
@@ -471,7 +661,8 @@ public static class CandySortEditedUiSmoke
         return new[] { "Candy plates", "Temporary tray" }.SelectMany(name =>
         {
             RectTransform layer = controller.GetComponentsInChildren<RectTransform>(true).Single(r => r.name == name);
-            return layer.GetComponentsInChildren<RectTransform>(true);
+            // TMP creates renderer children for fallback glyphs; they are not authored views.
+            return layer.GetComponentsInChildren<RectTransform>(true).Where(rect => rect.GetComponent<TMP_SubMeshUI>() == null);
         }).ToArray();
     }
     private static Image[] CurrentImages() { return CurrentRects().SelectMany(r => r.GetComponents<Image>()).ToArray(); }
@@ -525,9 +716,10 @@ public static class CandySortEditedUiSmoke
             string.Join(";", Model.Plates.Select(p => p.Active + ":" + p.Kind + ":" + p.Count)),
             string.Join(";", Model.Bubbles.Select(b => b.Id + ":" + b.Lane + ":" + string.Join(",", b.Candies.Select(k => (int)k)))) });
     }
-    private static void Capture(int level)
+    private static void Capture(int level) { Capture("edited-ui-stage-" + level); }
+    private static void Capture(string name)
     {
-        screenshot = Path.GetFullPath(OutputPath + "/edited-ui-stage-" + level + ".png");
+        screenshot = Path.GetFullPath(OutputPath + "/" + name + ".png");
         if (File.Exists(screenshot)) File.Delete(screenshot);
         Canvas.ForceUpdateCanvases();
         ScreenCapture.CaptureScreenshot(screenshot);
