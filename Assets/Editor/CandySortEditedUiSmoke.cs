@@ -9,6 +9,7 @@ using System.Reflection;
 using CandySort;
 using TMPro;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -18,7 +19,10 @@ using Object = UnityEngine.Object;
 [InitializeOnLoad]
 public static class CandySortEditedUiSmoke
 {
-    private const string ScenePath = "Assets/Scenes/CandySortGame.unity";
+    private const string LegacyScenePath = "Assets/Scenes/CandySortGame.unity";
+    private const string GameplayScenePath = "Assets/Scenes/Gameplay.unity";
+    private const string TargetSceneKey = "CandySortEditedUiSmoke.TargetScene";
+    private const string SceneSetupKey = "CandySortEditedUiSmoke.SceneSetup";
     private const string RequestPath = "Temp/CandySortEditedUiSmoke.request";
     private const string OutputPath = "Temp/CandySortVerification";
     private const string ReportPath = OutputPath + "/edited-ui-report.txt";
@@ -32,7 +36,8 @@ public static class CandySortEditedUiSmoke
     {
         "sceneCamera", "root", "plateLayer", "tempLayer", "board", "bubbleLayer", "modalLayer", "effectLayer",
         "levelLabel", "difficultyLabel", "progressLabel", "hintLabel", "queueLabel", "progressFill",
-        "helpButton", "restartButton", "undoButton"
+        "helpButton", "restartButton", "undoButton", "magnetButton", "shuffleButton",
+        "magnetCountLabel", "undoCountLabel", "shuffleCountLabel"
     };
     private static CandySortGameController controller;
     private static AuthoredSnapshot authored;
@@ -44,6 +49,30 @@ public static class CandySortEditedUiSmoke
     private static string beforeMove, boardBefore;
     private static int moveBubble, moveIndex, trayBefore;
     private static CandyKind moveKind;
+    private static int boosterStep, stockBefore;
+    private static string boosterModelBefore, boosterBoardBefore;
+    private static CandySortModel expectedBoosterModel;
+    private static bool economyInjected, economyIsolated, editModeConfirmed;
+    private static object inventory;
+    private static Dictionary<string, int> inventoryPrefs;
+    private static long wallet, rewardWalletBefore;
+    private static int walletWrites, inventorySaves;
+    private static Action pendingWalletSuccess;
+    private static bool deferWalletChange;
+    private static readonly string[] BoosterNames = { "Magnet", "Undo", "Shuffle" };
+    private static readonly int[] UnlockLevels = { 3, 5, 7 };
+    private static bool IsGameplay { get { return SessionState.GetString(TargetSceneKey, "") == GameplayScenePath; } }
+
+    [Serializable] private sealed class SavedSceneSetup
+    {
+        public List<SavedScene> scenes = new List<SavedScene>();
+    }
+
+    [Serializable] private sealed class SavedScene
+    {
+        public string path;
+        public bool loaded, active;
+    }
 
     [Serializable] private sealed class AuthoredSnapshot
     {
@@ -70,14 +99,100 @@ public static class CandySortEditedUiSmoke
         EditorApplication.update += Tick;
         EditorApplication.playModeStateChanged += PlayModeChanged;
         Application.logMessageReceived += OnLog;
+        InstallStartHook(false);
+        EditorApplication.delayCall += RecoverStoppedSession;
+    }
+
+    private static void RecoverStoppedSession()
+    {
+        // A reimport can happen after EnteredEditMode was delivered to the old domain.
+        // Require two deferred idle observations, and recover only sessions with no
+        // scene setup to restore: this path never calls scene APIs during a transition.
+        if (SessionState.GetString(StateKey, "") == "stopping" &&
+            !Application.isPlaying && !EditorApplication.isPlaying && !EditorApplication.isPlayingOrWillChangePlaymode &&
+            SessionState.GetString(SceneSetupKey, "").Length == 0)
+            EditorApplication.delayCall += ConfirmStoppedSession;
+    }
+
+    private static void ConfirmStoppedSession()
+    {
+        if (SessionState.GetString(StateKey, "") != "stopping" ||
+            EditorApplication.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode ||
+            SessionState.GetString(SceneSetupKey, "").Length != 0) return;
+        editModeConfirmed = true;
+        ResetSession();
+    }
+
+    private static void InstallStartHook(bool required)
+    {
+        // Editor assemblies do not reliably receive RuntimeInitializeOnLoadMethod.
+        // This editor-only runtime hook is called as Start's first statement, before
+        // InitializeViews or RestoreProgress can grant persistent welcome stock.
+        FieldInfo hook = typeof(CandySortGameController).GetField("BeforeEditorStart",
+            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        if (required) Check(hook != null, "The controller's editor-only pre-Start isolation hook is available.");
+        if (hook != null)
+        {
+            var callbacks = (Action<CandySortGameController>)hook.GetValue(null);
+            callbacks -= PrepareControllerStart;
+            callbacks += PrepareControllerStart;
+            hook.SetValue(null, callbacks);
+        }
+    }
+
+    private static void PrepareControllerStart(CandySortGameController runtimeController)
+    {
+        if (SessionState.GetString(StateKey, "") != "entering" ||
+            runtimeController.gameObject.scene.path != SessionState.GetString(TargetSceneKey, "")) return;
+        try
+        {
+            Check(Application.isPlaying && !runtimeController.IsInitialized,
+                "Economy isolation is installed on the runtime copy before controller Start initialization.");
+            controller = runtimeController;
+            Set(controller, "persistEconomy", false);
+            Set(controller, "rememberProgress", false);
+            Set(controller, "startingLevel", 1);
+            economyInjected = false;
+            wallet = 100;
+            walletWrites = inventorySaves = 0;
+            deferWalletChange = false;
+            pendingWalletSuccess = null;
+            InjectWallet();
+            economyIsolated = true;
+        }
+        catch (Exception exception)
+        {
+            Finish(false, exception.ToString(), true);
+            // Abort this Start rather than allowing it to fall through into persistent
+            // initialization if the hook cannot establish isolation.
+            throw;
+        }
     }
 
     [MenuItem("Candy Sort/Run Edited UI Regression Smoke Test")]
     public static void RequestSmoke()
     {
         // Also callable through -executeMethod CandySortEditedUiSmoke.RequestSmoke.
+        WriteRequest("run");
+    }
+
+    [MenuItem("Candy Sort/Run Gameplay UI Regression Smoke Test")]
+    public static void RequestGameplaySmoke()
+    {
+        WriteRequest("Gameplay");
+    }
+
+    private static void WriteRequest(string target)
+    {
+        Check(!EditorApplication.isPlayingOrWillChangePlaymode && SessionState.GetString(StateKey, "") == "",
+            "Stop Play mode / the active smoke before requesting this test.");
         Directory.CreateDirectory("Temp");
-        File.WriteAllText(RequestPath, "run");
+        File.WriteAllText(RequestPath, target);
+    }
+
+    private static bool ScenesAreClean()
+    {
+        return !Enumerable.Range(0, SceneManager.sceneCount).Any(i => SceneManager.GetSceneAt(i).isDirty);
     }
 
     private static void Tick()
@@ -88,31 +203,67 @@ public static class CandySortEditedUiSmoke
             if (state == "")
             {
                 if (EditorApplication.isCompiling || EditorApplication.isUpdating || !File.Exists(RequestPath)) return;
-                File.Delete(RequestPath); // One-shot, like CandySortEditor; a static constructor is not a request.
+                string request = File.ReadAllText(RequestPath).Trim();
+                File.Delete(RequestPath); // One-shot; a static constructor/import is never a request.
                 Directory.CreateDirectory(OutputPath);
+                if (request == "RestoreSplash")
+                {
+                    Check(!Application.isPlaying && !EditorApplication.isPlayingOrWillChangePlaymode && ScenesAreClean(),
+                        "Stop Play mode and keep scenes clean before restoring Splash; no scene is saved or discarded.");
+                    EditorSceneManager.OpenScene("Assets/Scenes/Splash.unity", OpenSceneMode.Single);
+                    Pass("Restored the original Splash scene without saving any scene.");
+                    return;
+                }
                 File.WriteAllText(ReportPath, "Candy Sort edited UI: actual Play Mode regression smoke\n");
+                Check(request == "run" || request == "Gameplay", "Unknown smoke request: " + request);
                 Check(!EditorApplication.isPlayingOrWillChangePlaymode, "Stop Play mode before requesting this test.");
-                Check(SceneManager.GetActiveScene().path == ScenePath, "Open the customized CandySortGame scene first.");
-                Check(!Enumerable.Range(0, SceneManager.sceneCount).Any(i => SceneManager.GetSceneAt(i).isDirty),
-                    "Save or discard pending scene edits before requesting this test (the test never saves).");
+                editModeConfirmed = true; // This request has not initiated any Play transition yet.
+                InstallStartHook(true); // Fail before entering Play if isolation cannot be installed.
+                Check(!EditorSettings.enterPlayModeOptionsEnabled ||
+                    (EditorSettings.enterPlayModeOptions & EnterPlayModeOptions.DisableSceneReload) == 0,
+                    "This smoke requires scene reload so its pre-Start hook runs on a fresh runtime copy.");
+                Check(ScenesAreClean(), "Save or discard pending scene edits before requesting this test (the test never saves).");
                 Check(!SessionState.GetBool("CandySortSmokeActive", false) && !File.Exists("Temp/CandySortSmoke.request"),
                     "Do not run the existing CandySortEditor smoke at the same time.");
+                if (request == "Gameplay")
+                {
+                    var setup = new SavedSceneSetup();
+                    foreach (SceneSetup scene in EditorSceneManager.GetSceneManagerSetup())
+                    {
+                        Check(!string.IsNullOrEmpty(scene.path), "Save every open scene before explicitly opening Gameplay for the smoke.");
+                        setup.scenes.Add(new SavedScene { path = scene.path, loaded = scene.isLoaded, active = scene.isActive });
+                    }
+                    SessionState.SetString(SceneSetupKey, JsonUtility.ToJson(setup));
+                    EditorSceneManager.OpenScene(GameplayScenePath, OpenSceneMode.Single);
+                }
+                string target = SceneManager.GetActiveScene().path;
+                Check(target == LegacyScenePath || target == GameplayScenePath,
+                    "Open the saved CandySortGame or Gameplay scene first (or explicitly request Gameplay).");
+                SessionState.SetString(TargetSceneKey, target);
+                Pass("Requested saved target: " + target);
                 controller = FindController();
                 VerifyTextComponents();
                 authored = CaptureAuthored();
                 SessionState.SetString(SnapshotKey, JsonUtility.ToJson(authored));
                 SessionState.SetString(ErrorKey, "");
                 SessionState.SetFloat(DeadlineKey, (float)EditorApplication.timeSinceStartup + 150);
+                economyIsolated = false;
+                editModeConfirmed = false;
                 SessionState.SetString(StateKey, "entering");
-                // No serialized edit-mode settings are touched. Runtime copies are changed on entry.
+                // No serialized edit-mode settings are touched. The pre-Start hook changes only runtime copies.
                 EditorWindow.GetWindow(typeof(Editor).Assembly.GetType("UnityEditor.GameView")).Focus();
                 EditorApplication.isPlaying = true;
                 return;
             }
             if (state == "stopping")
             {
-                if (EditorApplication.isPlayingOrWillChangePlaymode) EditorApplication.isPlaying = false;
-                else ResetSession();
+                if (EditorApplication.isPlaying) EditorApplication.isPlaying = false;
+                if (!Application.isPlaying && !EditorApplication.isPlayingOrWillChangePlaymode && !EditorApplication.isPlaying)
+                {
+                    editModeConfirmed = true;
+                    EditorApplication.delayCall -= ResetSession;
+                    EditorApplication.delayCall += ResetSession;
+                }
                 return;
             }
             Check(EditorApplication.timeSinceStartup < SessionState.GetFloat(DeadlineKey, 0), "Smoke timed out.");
@@ -152,15 +303,23 @@ public static class CandySortEditedUiSmoke
         {
             if (change == PlayModeStateChange.EnteredPlayMode && state == "entering")
             {
-                controller = FindController();
-                // Only the live Play copy is modified; no SerializedObject, SetDirty or scene save.
-                Set(controller, "rememberProgress", false);
-                Set(controller, "startingLevel", 1);
+                Check(SceneManager.GetActiveScene().path == SessionState.GetString(TargetSceneKey, ""),
+                    "The requested scene must remain active when entering Play mode.");
+                var runtimeController = FindController();
+                Check(economyIsolated && controller == runtimeController && !(bool)Get(runtimeController, "persistEconomy") &&
+                    !(bool)Get(runtimeController, "rememberProgress"),
+                    "The pre-Start hook isolated this runtime controller before EnteredPlayMode.");
+                // Start may already have run. EnteredPlayMode verifies the earlier hook;
+                // it must never try to install isolation after welcome grants happened.
+                controller = runtimeController;
                 authored = JsonUtility.FromJson<AuthoredSnapshot>(SessionState.GetString(SnapshotKey, ""));
                 transformIds = CurrentRects().ToDictionary(PathOf, r => r.GetInstanceID());
                 imageIds = CurrentImages().ToDictionary(i => PathOf(i.transform), i => i.GetInstanceID());
-                controllerReferences = AuthoredReferences.ToDictionary(name => name, name => Get(controller, name));
-                stage = phase = 0;
+                // Runtime count/icon fallbacks may be appended when the authored scene
+                // has no binding. Existing authored fields, including counts, must not move.
+                controllerReferences = AuthoredReferences.Where(name => !name.EndsWith("CountLabel") || Get(controller, name) != null)
+                    .ToDictionary(name => name, name => Get(controller, name));
+                stage = phase = boosterStep = 0;
                 screenshot = null;
                 nextTick = EditorApplication.timeSinceStartup + .5;
                 SessionState.SetString(StateKey, "running");
@@ -169,7 +328,9 @@ public static class CandySortEditedUiSmoke
             else if (change == PlayModeStateChange.EnteredEditMode)
             {
                 if (state != "stopping") File.AppendAllText(ReportPath, "FAIL: Play mode exited before completion.\n");
-                ResetSession();
+                editModeConfirmed = true;
+                EditorApplication.delayCall -= ResetSession;
+                EditorApplication.delayCall += ResetSession;
             }
         }
         catch (Exception exception) { Finish(false, exception.ToString(), true); }
@@ -187,8 +348,21 @@ public static class CandySortEditedUiSmoke
 
     private static void RunStep()
     {
+        if (!controller.IsInitialized) { nextTick = EditorApplication.timeSinceStartup + .1; return; }
         Check(Get(controller, "model") != null, "Controller Start initialized its model.");
-        Check(!(bool)Get(controller, "rememberProgress"), "Progress persistence stays disabled at runtime.");
+        Check(!(bool)Get(controller, "rememberProgress") && !(bool)Get(controller, "persistEconomy"),
+            "Progress and economy persistence stay disabled on the runtime copy.");
+        if (!economyInjected)
+        {
+            // Start has finished, but no test LoadLevel/action has run yet. Neither this
+            // inventory nor the coin delegates can reach PlayerPrefs or ResourceService.
+            InjectInventory();
+            InjectWallet();
+            foreach (string name in new[] { "magnetCountLabel", "undoCountLabel", "shuffleCountLabel" })
+                if (!controllerReferences.ContainsKey(name) && Get(controller, name) != null) controllerReferences[name] = Get(controller, name);
+            economyInjected = true;
+            Pass("After-Start in-memory inventory and fake coin wallet installed before test LoadLevel; runtime fallbacks tracked independently of authored plate/tray geometry.");
+        }
         if (phase == 0)
         {
             // The new member is accessed by reflection so this test still compiles before the runtime patch.
@@ -210,8 +384,9 @@ public static class CandySortEditedUiSmoke
             ProbeDialogs();
             ProbeRecovery();
             ProbeOptionalAndLegacy();
-            Load(4); // Three plates / four flavors guarantees a genuinely unmatched tray candidate.
+            Load(5); // Undo unlocks here; unmatched kinds are guaranteed among nine flavors.
             beforeMove = ModelSignature();
+            boardBefore = BoardSignature();
             trayBefore = Model.Temp.Count(k => k.HasValue);
             var candidate = Model.Bubbles.SelectMany(b => b.Candies.Select((kind, index) => new { b.Id, Index = index, Kind = kind }))
                 .First(c => !Model.Plates.Any(p => p.Active && p.Kind == c.Kind));
@@ -230,14 +405,19 @@ public static class CandySortEditedUiSmoke
             if ((bool)Get(controller, "busy")) { nextTick = EditorApplication.timeSinceStartup + .1; return; }
             Check(Model.Temp.Count(k => k.HasValue) == trayBefore + 1 && Model.Temp.Any(k => k == moveKind) && Model.CanUndo,
                 "Bound candy action routes one unmatched candy to the tray and creates Undo history.");
-            VerifyStage(4);
-            Check(((Button)Get(controller, "undoButton")).interactable, "Controller enabled Undo after the tray move.");
+            VerifyStage(5);
+            Check(((Button)Get(controller, "undoButton")).interactable, "Controller enabled unlocked Undo after the tray move.");
+            stockBefore = Stock("Undo");
+            long coins = wallet;
             ((Button)Get(controller, "undoButton")).onClick.Invoke();
-            Check(ModelSignature() == beforeMove, "Bound Undo restores exact model candies, plates, tray, orders and counters.");
-            VerifyStage(4);
-            Pass("Actual controller candy binding, tray occupancy/art and exact Undo.");
-            Load(1);
-            VerifyStage(1);
+            Check(ModelSignature() == beforeMove && BoardSignature() == boardBefore,
+                "Bound Undo restores exact model candies, plates, tray, orders, counters, layout and slot mapping.");
+            Check(Stock("Undo") == stockBefore - 1 && wallet == coins && walletWrites == 0,
+                "Successful tray Undo consumes one free use without touching the fake wallet.");
+            VerifyStage(5);
+            Pass("Actual controller candy binding, tray occupancy/art and finite-stock exact Undo.");
+            Load(5);
+            VerifyStage(5);
             phase = 4;
             nextTick = EditorApplication.timeSinceStartup + .3; // Catch asynchronous controller logs before reporting success.
         }
@@ -262,7 +442,7 @@ public static class CandySortEditedUiSmoke
         {
             if ((bool)Get(controller, "busy")) { nextTick = EditorApplication.timeSinceStartup + .1; return; }
             Check(Model.Temp.Count(k => k.HasValue) == trayBefore + 1, "Each bound unmatched candy fills exactly one temp slot.");
-            VerifyStage(1);
+            VerifyStage(5);
             if (trayBefore < 4) phase = 4;
             else
             {
@@ -278,21 +458,424 @@ public static class CandySortEditedUiSmoke
         {
             var modal = (RectTransform)Get(controller, "modalLayer");
             var undo = modal.GetComponentsInChildren<Button>().Single(button => button.name == "Button HOÀN TÁC");
+            stockBefore = Stock("Undo");
+            long coins = wallet;
             undo.onClick.Invoke();
+            Check(Stock("Undo") == stockBefore - 1 && wallet == coins,
+                "Loss-dialog Undo consumes one free use, without spending coins.");
             // Clear disables the modal immediately; Unity destroys its objects at the end of the frame.
             Check(!modal.GetComponentsInChildren<Button>().Any() && Model.Temp.Count(k => k.HasValue) == 4,
                 "Loss-dialog Undo clears the modal and restores four occupied slots.");
             Check(ModelSignature() == beforeMove && BoardSignature() == boardBefore,
                 "Loss-dialog Undo restores the exact pre-fifth-candy model, layout and candy slots.");
             Check(PlayableCandy(true) != null, "Matching candy is playable again after loss-dialog Undo.");
-            VerifyStage(1);
-            Pass("Fifth temp slot causes loss after transfer despite a remaining matching move; dialog Undo restores exact state.");
+            VerifyStage(5);
+            Pass("Fifth temp slot causes loss after transfer despite a remaining matching move; finite-stock dialog Undo restores exact state.");
             Load(1);
             phase = 7;
             nextTick = EditorApplication.timeSinceStartup + .3;
         }
-        else Finish(true, "Levels 1/2/3/4/5/4/3/2/1; authored locks/dishes/layout/identities; reference recovery; array resize; optional TMP captions; legacy rim/locks; tray and Undo; fifth-slot loss and exact dialog Undo; help/loss/win/final-win TMP dialogs; font/Vietnamese glyph coverage; text-fit warnings reported separately.", true);
+        else if (phase == 7)
+        {
+            if (ProbeBoosters())
+            {
+                Load(1);
+                rewardWalletBefore = wallet;
+                phase = 8;
+                nextTick = EditorApplication.timeSinceStartup + .3;
+            }
+        }
+        else if (phase == 8)
+        {
+            if ((bool)Get(controller, "busy")) { nextTick = EditorApplication.timeSinceStartup + .1; return; }
+            if (!Model.IsWon)
+            {
+                // Win honestly through bound candy actions. Do not fabricate counters or
+                // invoke CompleteLevel on a nonwinning model merely to probe its dialog.
+                var candidate = Model.Bubbles.SelectMany(b => b.Candies.Select((kind, index) => new { b.Id, Index = index, Kind = kind }))
+                    .FirstOrDefault(c => Model.Plates.Any(p => p.Active && p.Kind == c.Kind));
+                Check(candidate != null, "Valid reward fixture has a directly matching board move.");
+                CandyButton(candidate.Id, candidate.Index).onClick.Invoke();
+                nextTick = EditorApplication.timeSinceStartup + .1;
+                return;
+            }
+            Check(wallet == rewardWalletBefore + 40, "A valid completed level awards exactly 40 fake coins.");
+            int writes = walletWrites;
+            Invoke("CompleteLevel");
+            Invoke("CompleteLevel");
+            Check(Model.IsWon && wallet == rewardWalletBefore + 40 && walletWrites == writes,
+                "Duplicate completion callbacks on the same won level cannot award twice.");
+            VerifyDialog("Result card", "THẬT NGỌT NGÀO!");
+            object claimedReward = Get(controller, "winReward");
+            Load(1);
+            Check(!ReferenceEquals(claimedReward, Get(controller, "winReward")) && wallet == rewardWalletBefore + 40 && walletWrites == writes,
+                "LoadLevel creates a fresh reward attempt without awarding a nonwinning model.");
+            Pass("Actual bound moves win level 1; +40 reward goes only to fake wallet, once per LoadLevel.");
+            phase = 9;
+            nextTick = EditorApplication.timeSinceStartup + .3;
+        }
+        else Finish(true, "Target " + SessionState.GetString(TargetSceneKey, "") +
+            "; levels 1/2/3/4/5/4/3/2/1; authored locks/dishes/layout/identities and booster references; reference recovery; array resize; optional captions; legacy rim/locks; tray-only exact Undo; fifth-slot loss and dialog Undo; unlocks 3/5/7; one-time grants of two; free stock consumption; depleted purchase cancel/insufficient/confirm/in-flight guard; loss-dialog paid Undo; boosters invalidate rather than create Undo; rendered candy slots; valid win +40 and duplicate reward guard; help/loss/win/final-win TMP dialogs; no persistent economy/progress writes; text-fit warnings reported separately.", true);
     }
+
+    // An independent rules model is only an oracle: controller actions own all live
+    // board/history mutations. The inventory/wallet are deliberately disposable fakes.
+    private static bool ProbeBoosters()
+    {
+        if ((bool)Get(controller, "busy")) { nextTick = EditorApplication.timeSinceStartup + .1; return false; }
+        switch (boosterStep)
+        {
+            case 0:
+                ProbeInventoryThresholds();
+                ProbeControllerLocks();
+                InjectInventory();
+                Load(4);
+                expectedBoosterModel = new CandySortModel(4);
+                TakeOracleCandy(false);
+                break;
+            case 1:
+                Check(Model.CanUndo && !Unlocked("Undo"), "Locked Undo fixture has a real tray pickup before level 5.");
+                string lockedModel = ModelSignature(), lockedBoard = BoardSignature(), lockedStock = StockSignature();
+                Request("Undo");
+                Invoke("RequestBooster", Booster("Undo"));
+                Invoke("ExecuteBooster", Booster("Undo"));
+                Check(ModelSignature() == lockedModel && BoardSignature() == lockedBoard && StockSignature() == lockedStock && !ModalActive && walletWrites == 0,
+                    "A genuinely undoable tray pickup cannot bypass Undo's level-5 lock or open a purchase.");
+                VerifyStage(4);
+                ResetBoosterFixture();
+                TakeOracleCandy(true);
+                break;
+            case 2:
+                Check(!Model.CanUndo && BoardHistoryCount() == 0, "A successful plate pickup is not undoable.");
+                VerifyUnavailableUndo();
+                ResetBoosterFixture();
+                TakeOracleCandy(false);
+                break;
+            case 3:
+                Check(Model.CanUndo && BoardHistoryCount() == 1, "Unmatched pickup creates tray-only model/board history.");
+                boosterBoardBefore = BoardSignature();
+                BeginBooster(false);
+                break;
+            case 4:
+                VerifyBoosterResult("Shuffle");
+                Check(BoardSignature() == boosterBoardBefore, "Shuffle preserves bubble layout and original candy slots.");
+                VerifyUnavailableUndo();
+                ResetBoosterFixture();
+                TakeOracleCandy(false);
+                break;
+            case 5:
+                Check(Model.CanUndo, "Magnet fixture begins with an undoable tray pickup.");
+                BeginBooster(true);
+                break;
+            case 6:
+                VerifyBoosterResult("Magnet");
+                VerifyUnavailableUndo();
+                Check(Stock("Magnet") == 1, "First Magnet consumes exactly one of two free uses.");
+                BeginBooster(true);
+                break;
+            case 7:
+                VerifyBoosterResult("Second free Magnet");
+                Check(Stock("Magnet") == 0 && walletWrites == 0, "Second Magnet exhausts free stock without coin writes.");
+                boosterModelBefore = ModelSignature();
+                boosterBoardBefore = BoardSignature();
+                Request("Magnet");
+                VerifyPurchase();
+                PurchaseButton("HỦY").onClick.Invoke();
+                VerifyNoPurchaseMutation("Cancel", 100);
+                wallet = 9;
+                Request("Magnet");
+                VerifyPurchase();
+                PurchaseButton("MUA & DÙNG · 10 VÀNG").onClick.Invoke();
+                VerifyInsufficientPurchase(boosterModelBefore, 0);
+                PurchaseButton("HỦY").onClick.Invoke();
+                VerifyNoPurchaseMutation("Insufficient funds then cancel", 9);
+                wallet = 10;
+                Request("Magnet");
+                VerifyPurchase();
+                deferWalletChange = true;
+                PurchaseButton("MUA & DÙNG · 10 VÀNG").onClick.Invoke();
+                Check((bool)Get(controller, "purchaseInFlight") && pendingWalletSuccess != null && wallet == 0 && walletWrites == 1,
+                    "Confirm debits exactly ten fake coins and waits for the wallet callback.");
+                Invoke("ConfirmBoosterPurchase");
+                Invoke("CancelBoosterPurchase");
+                Invoke("RequestBooster", Booster("Shuffle"));
+                Check(walletWrites == 1 && Stock("Magnet") == 0 && ModelSignature() == boosterModelBefore,
+                    "Repeated confirm/cancel/request during purchase cannot debit, grant or execute again.");
+                Check(expectedBoosterModel.TryMagnet(), "Paid Magnet oracle accepts the action.");
+                Action success = pendingWalletSuccess;
+                pendingWalletSuccess = null;
+                deferWalletChange = false;
+                success();
+                Check((bool)Get(controller, "busy") && Stock("Magnet") == 0 && ModelSignature() == ModelSignature(expectedBoosterModel),
+                    "Successful purchase grants one use and consumes that use for exactly one Magnet.");
+                success(); // Resource callbacks can be delivered twice; settlement must be idempotent.
+                Check(Stock("Magnet") == 0 && wallet == 0 && walletWrites == 1 && ModelSignature() == ModelSignature(expectedBoosterModel),
+                    "Duplicate wallet success cannot grant, debit or execute a second purchased use.");
+                VerifyBusyGuards();
+                break;
+            case 8:
+                VerifyBoosterResult("Purchased Magnet");
+                Check(wallet == 0 && walletWrites == 1, "Paid use costs ten once, with no recurring or booster reward charge.");
+                // Reload cannot replenish exhausted free grants; an earlier level stays unlocked.
+                Load(1);
+                Check(Stock("Magnet") == 0 && Unlocked("Magnet"), "Reloading an earlier level never refills or re-locks stock.");
+                ResetBoosterFixture();
+                while (Stock("Undo") > 0) Check((bool)InventoryCall(inventory, "TryConsume", Booster("Undo")), "Exhaust fake Undo stock.");
+                break;
+            case 9:
+                if (Model.Temp.Count(k => k.HasValue) < 5)
+                {
+                    beforeMove = ModelSignature();
+                    boardBefore = BoardSignature();
+                    TakeOracleCandy(false);
+                    nextTick = EditorApplication.timeSinceStartup + .1;
+                    return false;
+                }
+                VerifyDialog("Result card", "KHAY TẠM ĐÃ ĐẦY");
+                ModelButton("HOÀN TÁC").onClick.Invoke();
+                VerifyPurchase();
+                string fullTray = ModelSignature();
+                PurchaseButton("HỦY").onClick.Invoke();
+                Check(ModelSignature() == fullTray && Stock("Undo") == 0 && walletWrites == 1,
+                    "Cancelling paid loss-dialog Undo leaves the full tray and stock untouched.");
+                VerifyDialog("Result card", "KHAY TẠM ĐÃ ĐẦY");
+                wallet = 9;
+                ModelButton("HOÀN TÁC").onClick.Invoke();
+                PurchaseButton("MUA & DÙNG · 10 VÀNG").onClick.Invoke();
+                VerifyInsufficientPurchase(fullTray, 1);
+                Check(Stock("Undo") == 0, "Insufficient paid loss Undo grants no stock.");
+                PurchaseButton("HỦY").onClick.Invoke();
+                VerifyDialog("Result card", "KHAY TẠM ĐÃ ĐẦY");
+                wallet = 10;
+                ModelButton("HOÀN TÁC").onClick.Invoke();
+                PurchaseButton("MUA & DÙNG · 10 VÀNG").onClick.Invoke();
+                Check(ModelSignature() == beforeMove && BoardSignature() == boardBefore && Model.Temp.Count(k => k.HasValue) == 4,
+                    "Paid loss-dialog Undo restores exactly the pre-fifth-pickup model, slots and layout.");
+                Check(Stock("Undo") == 0 && wallet == 0 && walletWrites == 2 && !ModalActive,
+                    "Paid Undo uses its single purchased use, debits ten and dismisses the loss dialog.");
+                VerifyStage(7);
+                Pass("Finite grants, locked actions, tray-only Undo, free consumption, purchase cancel/insufficient/confirm/in-flight and paid loss Undo.");
+                return true;
+        }
+        boosterStep++;
+        nextTick = EditorApplication.timeSinceStartup + .7;
+        return false;
+    }
+
+    private static void ResetBoosterFixture()
+    {
+        InjectInventory();
+        Load(7);
+        VerifyStage(7);
+        expectedBoosterModel = new CandySortModel(7);
+        Check(ModelSignature() == ModelSignature(expectedBoosterModel), "Booster fixture matches the independent canonical model.");
+    }
+
+    private static void TakeOracleCandy(bool matching)
+    {
+        var candidate = Model.Bubbles.SelectMany(b => b.Candies.Select((kind, index) => new { b.Id, Index = index, Kind = kind }))
+            .First(c => Model.Plates.Any(p => p.Active && p.Kind == c.Kind) == matching);
+        Check(expectedBoosterModel.TryTake(candidate.Id, candidate.Index), "Independent oracle accepts the bound candy pickup.");
+        CandyButton(candidate.Id, candidate.Index).onClick.Invoke();
+        Check((bool)Get(controller, "busy") && ModelSignature() == ModelSignature(expectedBoosterModel),
+            "Bound candy pickup applies the exact independent transaction.");
+    }
+
+    private static void BeginBooster(bool magnet)
+    {
+        string name = magnet ? "Magnet" : "Shuffle";
+        var button = (Button)Get(controller, name.ToLowerInvariant() + "Button");
+        Check(button == null || (button.isActiveAndEnabled && button.IsInteractable()), "Assigned booster is visibly enabled: " + name);
+        Check(magnet ? expectedBoosterModel.TryMagnet() : expectedBoosterModel.TryShuffle(), "Independent booster oracle accepts " + name);
+        int count = Stock(name), writes = walletWrites;
+        long coins = wallet;
+        Request(name);
+        Check((bool)Get(controller, "busy") && ModelSignature() == ModelSignature(expectedBoosterModel),
+            "Booster applies exactly one model transaction: " + name);
+        Check(Stock(name) == count - 1 && wallet == coins && walletWrites == writes,
+            "Successful free booster consumes one stock use and no coins: " + name);
+        VerifyBusyGuards();
+    }
+
+    private static void VerifyBusyGuards()
+    {
+        string model = ModelSignature(), board = BoardSignature(), stock = StockSignature();
+        int history = BoardHistoryCount(), writes = walletWrites;
+        foreach (string name in BoosterNames)
+        {
+            var button = (Button)Get(controller, name.ToLowerInvariant() + "Button");
+            if (button != null) Check(!button.interactable, "Busy controller disables " + name);
+            Request(name); // UnityEvent.Invoke deliberately bypasses Selectable filtering.
+            Invoke("RequestBooster", Booster(name));
+            Invoke("ExecuteBooster", Booster(name));
+            Check((bool)Get(controller, "busy") && ModelSignature() == model && BoardSignature() == board && BoardHistoryCount() == history &&
+                StockSignature() == stock && walletWrites == writes, "Busy reentry changes neither model, board, stock nor wallet: " + name);
+        }
+        var bubble = Model.Bubbles.First(b => b.Candies.Count > 0);
+        CandyButton(bubble.Id, 0).onClick.Invoke();
+        Check(ModelSignature() == model && BoardSignature() == board && BoardHistoryCount() == history && StockSignature() == stock,
+            "A bound candy action cannot interleave with the booster transaction.");
+    }
+
+    private static void VerifyBoosterResult(string action)
+    {
+        Check(!(bool)Get(controller, "busy"), action + " animation completed.");
+        Check(ModelSignature() == ModelSignature(expectedBoosterModel), action + " matches exact oracle state after animation.");
+        Check(!Model.CanUndo && BoardHistoryCount() == 0 && ModelHistoryCount(Model) == 0,
+            action + " invalidates prior tray pickups and creates no Undo entry of its own.");
+        Check(!ModalActive, action + " leaves no unexpected modal.");
+        VerifyStage(7);
+    }
+
+    private static void VerifyUnavailableUndo()
+    {
+        string model = ModelSignature(), board = BoardSignature(), stock = StockSignature();
+        int writes = walletWrites;
+        Request("Undo");
+        Invoke("ExecuteBooster", Booster("Undo"));
+        Check(!Model.CanUndo && ModelSignature() == model && BoardSignature() == board && StockSignature() == stock && walletWrites == writes && !ModalActive,
+            "Undo cannot reverse plate moves/boosters, spend stock/coins or open a purchase without a tray pickup.");
+    }
+
+    private static void VerifyPurchase()
+    {
+        VerifyDialog("Booster purchase", "MUA THÊM LƯỢT");
+        Check(PurchaseButton("MUA & DÙNG · 10 VÀNG") != null && PurchaseButton("HỦY") != null, "Purchase has explicit confirm and cancel actions.");
+        Check(ModelSignature() == boosterModelBefore || Model.Temp.All(k => k.HasValue), "Opening purchase does not execute its booster.");
+    }
+
+    private static void VerifyNoPurchaseMutation(string context, long coins)
+    {
+        Check(ModelSignature() == boosterModelBefore && BoardSignature() == boosterBoardBefore && Stock("Magnet") == 0 &&
+            wallet == coins && walletWrites == 0 && !ModalActive && Get(controller, "pendingBooster") == null,
+            context + " closes purchase without changing the model, board, stock or coins.");
+    }
+
+    private static void VerifyInsufficientPurchase(string expectedModel, int writes)
+    {
+        VerifyPurchase();
+        var feedback = (TextMeshProUGUI)Get(controller, "purchaseMessage");
+        Check(ModelSignature() == expectedModel && wallet == 9 && walletWrites == writes && !(bool)Get(controller, "purchaseInFlight") &&
+            feedback != null && feedback.isActiveAndEnabled && feedback.text.Contains("Không đủ vàng") && feedback.text.Contains("10"),
+            "Insufficient funds keep a cancellable purchase open with visible feedback, without stock/coin/model mutation.");
+    }
+
+    private static bool ModalActive { get { return ((RectTransform)Get(controller, "modalLayer")).Cast<Transform>().Any(t => t.gameObject.activeSelf); } }
+    private static Button ModelButton(string caption)
+    { return ((RectTransform)Get(controller, "modalLayer")).GetComponentsInChildren<Button>().Single(b => b.name == "Button " + caption); }
+    private static Button PurchaseButton(string caption) { return ModelButton(caption); }
+    private static void Request(string name)
+    {
+        var button = (Button)Get(controller, name.ToLowerInvariant() + "Button");
+        if (button != null) button.onClick.Invoke();
+        else Invoke(name); // Legacy scene may omit Magnet/Shuffle; still probe their guarded controller entry points.
+    }
+
+    private static object Booster(string name)
+    { return Enum.Parse(typeof(CandySortGameController).Assembly.GetType("CandySort.CandySortBooster", true), name); }
+    private static object InventoryCall(object target, string method, params object[] args)
+    {
+        MethodInfo member = target.GetType().GetMethod(method, Fields);
+        Check(member != null, "Required finite-stock API exists: " + method);
+        return member.Invoke(target, args);
+    }
+    private static int Stock(string name) { return (int)InventoryCall(inventory, "Count", Booster(name)); }
+    private static bool Unlocked(string name) { return (bool)InventoryCall(inventory, "IsUnlocked", Booster(name)); }
+    private static string StockSignature() { return string.Join(";", BoosterNames.Select(name => name + ":" + Unlocked(name) + ":" + Stock(name))); }
+    private static object NewInventory(Dictionary<string, int> prefs)
+    {
+        Type type = Field(controller, "boosterInventory").FieldType;
+        return Activator.CreateInstance(type, new object[]
+        {
+            new Func<string, int, int>((key, fallback) => prefs.TryGetValue(key, out int value) ? value : fallback),
+            new Action<string, int>((key, value) => prefs[key] = value),
+            new Action(() => inventorySaves++)
+        });
+    }
+    private static void InjectInventory()
+    {
+        inventoryPrefs = new Dictionary<string, int>();
+        inventory = NewInventory(inventoryPrefs);
+        Set(controller, "boosterInventory", inventory);
+    }
+    private static void InjectWallet()
+    {
+        Set(controller, "readCoins", new Func<long>(() => wallet));
+        Set(controller, "changeCoins", new Action<int, Action, Action>((amount, success, error) =>
+        {
+            if (wallet + amount < 0) { error?.Invoke(); return; }
+            wallet += amount;
+            walletWrites++;
+            if (deferWalletChange)
+            {
+                Check(pendingWalletSuccess == null, "Fake wallet accepts only one deferred transaction.");
+                pendingWalletSuccess = success;
+            }
+            else success?.Invoke();
+        }));
+    }
+
+    private static void ProbeInventoryThresholds()
+    {
+        var prefs = new Dictionary<string, int>();
+        object probe = NewInventory(prefs);
+        for (int level = 1; level <= 7; level++)
+        {
+            InventoryCall(probe, "GrantUnlocked", level);
+            for (int i = 0; i < BoosterNames.Length; i++)
+            {
+                object booster = Booster(BoosterNames[i]);
+                bool unlocked = level >= UnlockLevels[i];
+                Check((bool)InventoryCall(probe, "IsUnlocked", booster) == unlocked &&
+                    (int)InventoryCall(probe, "Count", booster) == (unlocked ? 2 : 0),
+                    "Level " + level + " threshold grants exactly two once: " + BoosterNames[i]);
+                if (!unlocked) Check(!(bool)InventoryCall(probe, "TryConsume", booster) && !(bool)InventoryCall(probe, "AddPurchasedUse", booster),
+                    "Locked stock cannot be consumed or purchased before its unlock.");
+            }
+        }
+        foreach (string name in BoosterNames)
+        {
+            object booster = Booster(name);
+            Check((bool)InventoryCall(probe, "TryConsume", booster) && (bool)InventoryCall(probe, "TryConsume", booster) &&
+                !(bool)InventoryCall(probe, "TryConsume", booster), "Each welcome grant permits exactly two uses: " + name);
+        }
+        InventoryCall(probe, "GrantUnlocked", 30);
+        InventoryCall(probe, "GrantUnlocked", 1);
+        probe = NewInventory(prefs); // Simulate persistence with this dictionary only, never PlayerPrefs.
+        foreach (string name in BoosterNames)
+        {
+            object booster = Booster(name);
+            Check((bool)InventoryCall(probe, "IsUnlocked", booster) && (int)InventoryCall(probe, "Count", booster) == 0,
+                "Reload/backtracking cannot replenish exhausted free stock: " + name);
+            Check((bool)InventoryCall(probe, "AddPurchasedUse", booster) && (int)InventoryCall(probe, "Count", booster) == 1,
+                "One purchased use increments only that unlocked stock: " + name);
+        }
+        Pass("Isolated dictionary inventory: unlock thresholds 3/5/7, two free once, exhausted zero survives reload/backtrack, paid +1.");
+    }
+
+    private static void ProbeControllerLocks()
+    {
+        foreach (int level in new[] { 2, 3, 4, 5, 6, 7 })
+        {
+            InjectInventory();
+            Load(level);
+            VerifyStage(level);
+            string model = ModelSignature(), board = BoardSignature(), stock = StockSignature();
+            int writes = walletWrites;
+            for (int i = 0; i < BoosterNames.Length; i++)
+            {
+                if (level >= UnlockLevels[i]) continue;
+                Request(BoosterNames[i]);
+                Invoke("RequestBooster", Booster(BoosterNames[i]));
+                Invoke("ExecuteBooster", Booster(BoosterNames[i]));
+                Check(ModelSignature() == model && BoardSignature() == board && StockSignature() == stock && walletWrites == writes && !ModalActive,
+                    "Locked booster rejects bound/direct entry without purchase or spend at level " + level + ": " + BoosterNames[i]);
+            }
+        }
+    }
+
+    private static int ModelHistoryCount(CandySortModel model) { return ((ICollection)Get(model, "history")).Count; }
+    private static int BoardHistoryCount() { return ((ICollection)Get(controller, "boardHistory")).Count; }
 
     private static Button CandyButton(int id, int index)
     {
@@ -326,8 +909,10 @@ public static class CandySortEditedUiSmoke
     {
         var positions = ((CandyBubbleLayout)Get(controller, "layout")).Capture();
         var slots = (IDictionary)Get(controller, "candySlots");
-        return string.Join(";", positions.OrderBy(pair => pair.Key).Select(pair => pair.Key + ":" + pair.Value.X + ":" + pair.Value.Y + ":" +
-            string.Join(",", ((IList)slots[pair.Key]).Cast<int>())));
+        return string.Join(";", positions.OrderBy(pair => pair.Key).Select(pair => pair.Key + ":" +
+            pair.Value.X.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + ":" +
+            pair.Value.Y.ToString("R", System.Globalization.CultureInfo.InvariantCulture))) + "|slots=" +
+            string.Join(";", slots.Keys.Cast<int>().OrderBy(id => id).Select(id => id + ":" + string.Join(",", ((IList)slots[id]).Cast<int>())));
     }
 
     private static AuthoredSnapshot CaptureAuthored()
@@ -350,8 +935,8 @@ public static class CandySortEditedUiSmoke
             if (i < 2) Check(dish.sprite.name == "erasebg-transformed_" + (i + 2), "Customized plate 1/2 Dish sprite matches the fixture.");
             else
             {
-                Check(Get(view, "Unlock") == null || Get(view, "Unlock") is TextMeshProUGUI,
-                    "Plate " + (i + 1) + " accepts a missing Unlock caption or the authored TextMeshProUGUI.");
+                Check(Get(view, "Unlock") == null || Get(view, "Unlock") is Graphic,
+                    "Plate " + (i + 1) + " accepts a missing Unlock caption or the authored TMP/Image graphic.");
                 Check(icon != null && icon.sprite != null && icon.sprite.name == "erasebg-transformed_4",
                     "Plate " + (i + 1) + " has its authored lock Image / erasebg-transformed_4.");
             }
@@ -366,17 +951,32 @@ public static class CandySortEditedUiSmoke
         Check(controller.gameObject.scene.GetRootGameObjects().All(root =>
             root.GetComponentsInChildren<UnityEngine.UI.Text>(true).Length == 0),
             "No legacy UI Text components remain in the authored/runtime scene, including inactive objects.");
-        foreach (string name in new[] { "levelLabel", "progressLabel", "queueLabel" })
+        foreach (string name in new[] { "levelLabel", "queueLabel" })
             Check(Get(controller, name) is TextMeshProUGUI, "Required HUD label uses TextMeshProUGUI: " + name);
-        foreach (string name in new[] { "difficultyLabel", "hintLabel" })
+        Check(Get(controller, "progressLabel") is TextMeshProUGUI || (IsGameplay && Get(controller, "progressLabel") == null),
+            "Legacy progressLabel remains required in CandySortGame; Gameplay permits its removal.");
+        if (!IsGameplay)
+        {
+            Check(Get(controller, "progressFill") is Image && Get(controller, "restartButton") is Button,
+                "Original CandySortGame retains legacy progressFill and restartButton bindings.");
+        }
+        foreach (string name in IsGameplay ? new[] { "magnetButton", "undoButton", "shuffleButton" } : new[] { "undoButton" })
+            Check(Get(controller, name) is Button, "Required authored button is bound: " + name);
+        Check(Get(controller, "helpButton") == null || Get(controller, "helpButton") is Button,
+            "Optional helpButton is valid when assigned.");
+        var boosters = new[] { "magnetButton", "undoButton", "shuffleButton" }.Select(name => Get(controller, name) as Button).Where(b => b != null).ToArray();
+        Check(boosters.Distinct().Count() == boosters.Length, "Each assigned booster uses a distinct authored Button.");
+        foreach (string name in new[] { "difficultyLabel", "hintLabel", "magnetCountLabel", "undoCountLabel", "shuffleCountLabel" })
             Check(Get(controller, name) == null || Get(controller, name) is TextMeshProUGUI,
                 "Optional HUD label uses TextMeshProUGUI when assigned: " + name);
         foreach (object view in Views("plateViews"))
         {
             Check(Get(view, "Count") is TextMeshProUGUI, "Required plate Count uses TextMeshProUGUI.");
-            foreach (string name in new[] { "Locked", "Unlock", "Served" })
+            foreach (string name in new[] { "Locked", "Served" })
                 Check(Get(view, name) == null || Get(view, name) is TextMeshProUGUI,
                     "Optional plate caption uses TextMeshProUGUI: " + name);
+            Check(Get(view, "Unlock") == null || Get(view, "Unlock") is TextMeshProUGUI || Get(view, "Unlock") is Image,
+                "Optional Unlock keeps its authored TMP caption or Image artwork.");
         }
         foreach (object view in Views("tempViews"))
             Check(Get(view, "Empty") == null || Get(view, "Empty") is TextMeshProUGUI,
@@ -442,6 +1042,11 @@ public static class CandySortEditedUiSmoke
             if (ring != null) Visible(ring, serving && legacy, "Legacy rim " + (i + 1));
             Visible((Image)Get(view, "Sample"), serving, "Flavor sample " + (i + 1));
             Visible((TextMeshProUGUI)Get(view, "Count"), serving, "Count " + (i + 1));
+            if (serving)
+            {
+                Check(((TextMeshProUGUI)Get(view, "Count")).text == plate.Count + "/3", "Rendered plate count matches the model.");
+                Check(((Image)Get(view, "Sample")).sprite == CandySortArt.Candy(plate.Kind.Value), "Rendered plate sample matches the assigned flavor.");
+            }
             OptionalVisible(view, "Served", plate.Active && !plate.Kind.HasValue);
             var candies = (Image[])Get(view, "Candies");
             Check(candies.Length == 3 && candies.All(c => c != null), "Three required Candy Images bound for plate " + (i + 1));
@@ -469,8 +1074,70 @@ public static class CandySortEditedUiSmoke
             }
             if (Model.Temp[i].HasValue) Check(candy.GetComponent<Image>().sprite == CandySortArt.Candy(Model.Temp[i].Value), "Occupied tray uses the model candy artwork.");
         }
+        VerifyRenderedBoard();
+        Check(((TextMeshProUGUI)Get(controller, "levelLabel")).text == "MÀN " + level.ToString("00") + " / " + CandySortCampaign.LevelCount,
+            "Rendered level label matches the model.");
+        if (Get(controller, "progressLabel") is TextMeshProUGUI progress)
+            Check(progress.text == Model.CompletedOrders + " / " + Model.TargetOrders + " ĐĨA", "Legacy progress caption matches the model.");
+        foreach (string name in BoosterNames)
+        {
+            string prefix = name.ToLowerInvariant();
+            var button = (Button)Get(controller, prefix + "Button");
+            var caption = (TextMeshProUGUI)Get(controller, prefix + "CountLabel");
+            bool unlocked = Unlocked(name);
+            int index = Array.IndexOf(BoosterNames, name);
+            if (button != null)
+            {
+                Check(caption != null, "Assigned booster has an authored or fallback TMP count: " + name);
+                bool actionAvailable = name == "Magnet" ? Model.MagnetPlateIndex >= 0 : name == "Shuffle" ? Model.CanShuffle : Model.CanUndo && BoardHistoryCount() > 0;
+                bool available = !(bool)Get(controller, "busy") && !Model.IsWon && unlocked && actionAvailable &&
+                    !(bool)Get(controller, "purchaseInFlight") && !ModalActive;
+                Check(button.interactable == available, "Booster uses lock/action/busy/modal gates, not a positive-stock gate: " + name);
+            }
+            if (caption != null)
+            {
+                Check(caption.text == (unlocked ? Stock(name).ToString() : "LV " + UnlockLevels[index]),
+                    "Booster label shows finite stock or its unlock threshold: " + name);
+                Check(caption.isActiveAndEnabled, "Bound/fallback booster count remains visible: " + name);
+            }
+        }
         VerifyActiveText(controller.transform, "Stage " + level);
-        Pass("Stage " + level + ": locks, custom dishes, legacy rims, tray and authored identities/layout.");
+        Pass("Stage " + level + ": locks, custom dishes, legacy rims, tray, rendered candy slots/boosters and authored identities/layout.");
+    }
+
+    private static void VerifyRenderedBoard()
+    {
+        var views = (IDictionary)Get(controller, "bubbles");
+        var slots = (IDictionary)Get(controller, "candySlots");
+        Check(views.Keys.Cast<int>().OrderBy(id => id).SequenceEqual(Model.Bubbles.Select(b => b.Id).OrderBy(id => id)),
+            "Rendered bubble identities exactly match the model's live bubbles.");
+        var positions = ((CandyBubbleLayout)Get(controller, "layout")).Capture();
+        Check(positions.Keys.OrderBy(id => id).SequenceEqual(Model.Bubbles.Select(b => b.Id).OrderBy(id => id)),
+            "Layout bodies exactly match the model's live bubbles.");
+        foreach (CandySortModel.Bubble bubble in Model.Bubbles)
+        {
+            object view = views[bubble.Id];
+            var rect = (RectTransform)Get(view, "Rect");
+            Check(rect.gameObject.activeInHierarchy, "Live bubble is rendered: " + bubble.Id);
+            var target = (Vector2)Get(view, "Target");
+            Check(Near(target, new Vector2(positions[bubble.Id].X, positions[bubble.Id].Y)), "Bubble's rendered target matches its layout body.");
+            var mapping = ((IList)slots[bubble.Id]).Cast<int>().ToArray();
+            var buttons = ((IList)Get(view, "Buttons")).Cast<Button>().ToArray();
+            Check(mapping.Length == bubble.Candies.Count && mapping.Distinct().Count() == mapping.Length &&
+                mapping.All(slot => slot >= 0 && slot < buttons.Length), "Every model candy maps to exactly one original visual slot.");
+            for (int slot = 0; slot < buttons.Length; slot++)
+                Visible(buttons[slot], mapping.Contains(slot), "Bubble candy slot " + bubble.Id + "/" + slot);
+            for (int i = 0; i < bubble.Candies.Count; i++)
+            {
+                Button button = buttons[mapping[i]];
+                var image = button.GetComponent<Image>();
+                Check(image != null && image.enabled && image.color.a > 0 && image.sprite == CandySortArt.Candy(bubble.Candies[i]),
+                    "Rendered board candy artwork matches its model flavor and original slot.");
+                Check(button.name == "Candy " + CandySortArt.Names[(int)bubble.Candies[i]], "Rendered candy name matches its current binding.");
+                Check(Vector3.Distance(button.transform.localScale, Vector3.one) < .001f,
+                    "Rendered candy restores its full scale after booster animations.");
+            }
+        }
     }
 
     private static void ProbeDialogs()
@@ -708,13 +1375,17 @@ public static class CandySortEditedUiSmoke
         method.Invoke(controller, args);
     }
     private static void Load(int level) { Invoke("LoadLevel", level); }
-    private static string ModelSignature()
+    private static string ModelSignature() { return ModelSignature(Model); }
+    private static string ModelSignature(CandySortModel model)
     {
-        return string.Join("|", new[] { Model.Level.ToString(), Model.CompletedOrders.ToString(), Model.SortedCandies.ToString(),
-            Model.CanUndo.ToString(), string.Join(",", Model.Temp.Select(k => k.HasValue ? ((int)k.Value).ToString() : "-")),
-            string.Join(",", Model.PendingOrders.Select(k => (int)k)),
-            string.Join(";", Model.Plates.Select(p => p.Active + ":" + p.Kind + ":" + p.Count)),
-            string.Join(";", Model.Bubbles.Select(b => b.Id + ":" + b.Lane + ":" + string.Join(",", b.Candies.Select(k => (int)k)))) });
+        return string.Join("|", new[] { model.Level.ToString(), model.CompletedOrders.ToString(), model.SortedCandies.ToString(),
+            model.TotalCandies.ToString(), model.TargetOrders.ToString(), model.ActivePlates.ToString(), model.IsWon.ToString(),
+            model.IsBlocked.ToString(), model.CanUndo.ToString(), ModelHistoryCount(model).ToString(),
+            Get(Get(model, "shuffleRandom"), "state").ToString(), model.MagnetPlateIndex.ToString(), model.CanShuffle.ToString(),
+            string.Join(",", model.Temp.Select(k => k.HasValue ? ((int)k.Value).ToString() : "-")),
+            string.Join(",", model.PendingOrders.Select(k => (int)k)),
+            string.Join(";", model.Plates.Select(p => p.Active + ":" + p.Kind + ":" + p.Count)),
+            string.Join(";", model.Bubbles.Select(b => b.Id + ":" + b.Lane + ":" + string.Join(",", b.Candies.Select(k => (int)k)))) });
     }
     private static void Capture(int level) { Capture("edited-ui-stage-" + level); }
     private static void Capture(string name)
@@ -740,11 +1411,38 @@ public static class CandySortEditedUiSmoke
         {
             SessionState.SetString(StateKey, stopPlay ? "stopping" : "");
             if (stopPlay) EditorApplication.isPlaying = false;
-            else ResetSession();
+            else
+            {
+                EditorApplication.delayCall -= ResetSession;
+                EditorApplication.delayCall += ResetSession;
+            }
         }
     }
     private static void ResetSession()
     {
+        if (!editModeConfirmed) return;
+        if (Application.isPlaying || EditorApplication.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode)
+        {
+            EditorApplication.delayCall -= ResetSession;
+            EditorApplication.delayCall += ResetSession;
+            return;
+        }
+        string setupJson = SessionState.GetString(SceneSetupKey, "");
+        if (setupJson.Length > 0)
+        {
+            // Restore only saved clean scenes after confirmed Edit Mode and a delayed
+            // editor tick. Keep the saved setup if restoring fails or new edits exist.
+            if (ScenesAreClean())
+            {
+                var setup = JsonUtility.FromJson<SavedSceneSetup>(setupJson);
+                EditorSceneManager.RestoreSceneManagerSetup(setup.scenes.Select(scene => new SceneSetup
+                    { path = scene.path, isLoaded = scene.loaded, isActive = scene.active }).ToArray());
+                SessionState.EraseString(SceneSetupKey); // Never discard recovery data before restoration succeeds.
+                Pass("Restored the previous saved editor scene setup without saving any scene.");
+            }
+            else File.AppendAllText(ReportPath, "WARNING: Prior scene setup was not restored because new unsaved scene edits exist.\n");
+        }
+        SessionState.EraseString(TargetSceneKey);
         SessionState.EraseString(StateKey);
         SessionState.EraseString(SnapshotKey);
         SessionState.EraseString(ErrorKey);
@@ -753,6 +1451,12 @@ public static class CandySortEditedUiSmoke
         authored = null;
         transformIds = imageIds = null;
         controllerReferences = null;
+        expectedBoosterModel = null;
+        boosterModelBefore = boosterBoardBefore = null;
+        inventory = null;
+        inventoryPrefs = null;
+        pendingWalletSuccess = null;
+        economyInjected = economyIsolated = deferWalletChange = false;
         screenshot = null;
     }
 }

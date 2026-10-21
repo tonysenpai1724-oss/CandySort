@@ -67,6 +67,7 @@ namespace CandySort
         private readonly List<Bubble> bubbles = new List<Bubble>();
         private readonly List<CandyKind> pendingOrders = new List<CandyKind>();
         private readonly Stack<Snapshot> history = new Stack<Snapshot>();
+        private readonly DeterministicRandom shuffleRandom;
 
         public IReadOnlyList<Plate> Plates { get; private set; }
         public IReadOnlyList<Bubble> Bubbles { get; private set; }
@@ -78,8 +79,49 @@ namespace CandySort
         public int CompletedOrders { get; private set; }
         public int TargetOrders { get; private set; }
         public int ActivePlates { get; private set; }
+        /// <summary>Whether the latest unmatched board-to-tray pickup can still be restored.</summary>
         public bool CanUndo { get { return history.Count > 0; } }
         public bool IsWon { get { return CompletedOrders == TargetOrders; } }
+
+        /// <summary>The most-filled board-completable active plate, or -1; ties use plate index.</summary>
+        public int MagnetPlateIndex
+        {
+            get
+            {
+                if (IsWon) return -1;
+                var counts = new int[CandyKindCount];
+                for (int i = 0; i < bubbles.Count; i++)
+                    for (int j = 0; j < bubbles[i].Candies.Count; j++)
+                        counts[(int)bubbles[i].Candies[j]]++;
+                int selected = -1;
+                for (int i = 0; i < plates.Count; i++)
+                {
+                    Plate plate = plates[i];
+                    if (!plate.Active || !plate.Kind.HasValue || counts[(int)plate.Kind.Value] < 3 - plate.Count)
+                        continue;
+                    if (selected < 0 || plate.Count > plates[selected].Count) selected = i;
+                }
+                return selected;
+            }
+        }
+
+        /// <summary>A shuffle is available only when at least two board kinds can exchange slots.</summary>
+        public bool CanShuffle
+        {
+            get
+            {
+                if (IsWon) return false;
+                CandyKind? first = null;
+                for (int i = 0; i < bubbles.Count; i++)
+                    for (int j = 0; j < bubbles[i].Candies.Count; j++)
+                    {
+                        CandyKind kind = bubbles[i].Candies[j];
+                        if (first.HasValue && first.Value != kind) return true;
+                        first = kind;
+                    }
+                return false;
+            }
+        }
 
         /// <summary>All candies delivered to plates, including partially filled orders.</summary>
         public int SortedCandies
@@ -144,7 +186,9 @@ namespace CandySort
             Bubbles = bubbles.AsReadOnly();
             PendingOrders = pendingOrders.AsReadOnly();
 
-            var random = new DeterministicRandom(unchecked((uint)Definition.Seed ^ (uint)seed));
+            uint randomSeed = unchecked((uint)Definition.Seed ^ (uint)seed);
+            shuffleRandom = new DeterministicRandom(randomSeed);
+            var random = new DeterministicRandom(randomSeed);
             var kinds = new List<CandyKind>();
             // Unlock an intentional enum prefix before shuffling; later flavors
             // cannot appear early merely because a seed shuffled a global pool.
@@ -355,7 +399,10 @@ namespace CandySort
             int tempIndex = plateIndex < 0 ? FindFreeTemp() : -1;
             if (plateIndex < 0 && tempIndex < 0) return false;
 
-            history.Push(Capture());
+            // Only unmatched tray pickups are undoable. A successful plate move
+            // supersedes earlier pickups, even when it does not complete an order.
+            if (plateIndex < 0) history.Push(Capture());
+            else history.Clear();
             bubbles[index].Candies.RemoveAt(candyIndex);
             if (bubbles[index].Candies.Count == 0) bubbles.RemoveAt(index);
             if (plateIndex >= 0) PutOnPlate(plateIndex);
@@ -370,19 +417,77 @@ namespace CandySort
             if (IsWon || slot < 0 || slot >= Temp.Length || !Temp[slot].HasValue) return false;
             int plateIndex = FindPlate(Temp[slot].Value);
             if (plateIndex < 0) return false;
-            history.Push(Capture());
+            history.Clear();
             Temp[slot] = null;
             PutOnPlate(plateIndex);
             DrainTemp();
             return true;
         }
 
-        /// <summary>Restores the whole last move, including all automatic completion cascades.</summary>
+        /// <summary>Completes one chosen order from board candies, then drains the tray atomically.</summary>
+        public bool TryMagnet()
+        {
+            int plateIndex = MagnetPlateIndex;
+            if (plateIndex < 0) return false;
+            history.Clear();
+            CandyKind kind = plates[plateIndex].Kind.Value;
+            int needed = 3 - plates[plateIndex].Count;
+            for (int i = 0; i < bubbles.Count && needed > 0;)
+            {
+                List<CandyKind> candies = bubbles[i].Candies;
+                for (int j = 0; j < candies.Count && needed > 0;)
+                {
+                    if (candies[j] != kind) { j++; continue; }
+                    candies.RemoveAt(j);
+                    PutOnPlate(plateIndex);
+                    needed--;
+                }
+                if (candies.Count == 0) bubbles.RemoveAt(i);
+                else i++;
+            }
+            DrainTemp();
+            return true;
+        }
+
+        /// <summary>Permutes only board kinds, preserving every bubble and guaranteeing a change.</summary>
+        public bool TryShuffle()
+        {
+            if (!CanShuffle) return false;
+            history.Clear();
+            var original = new List<CandyKind>();
+            for (int i = 0; i < bubbles.Count; i++) original.AddRange(bubbles[i].Candies);
+            var shuffled = new List<CandyKind>(original);
+            Shuffle(shuffled, shuffleRandom);
+            bool changed = false;
+            for (int i = 0; i < original.Count; i++)
+                if (original[i] != shuffled[i]) { changed = true; break; }
+            if (!changed)
+            {
+                // Repeated kinds can hide a random permutation. Swap the first distinct pair.
+                int other = 1;
+                while (shuffled[other] == shuffled[0]) other++;
+                CandyKind swap = shuffled[0];
+                shuffled[0] = shuffled[other];
+                shuffled[other] = swap;
+            }
+            int offset = 0;
+            for (int i = 0; i < bubbles.Count; i++)
+                for (int j = 0; j < bubbles[i].Candies.Count; j++)
+                    bubbles[i].Candies[j] = shuffled[offset++];
+            return true;
+        }
+
+        /// <summary>
+        /// Restores the latest unmatched board-to-tray pickup, including its original bubble.
+        /// Consecutive pickups can be undone in reverse order; any successful plate move,
+        /// tray use, magnet or shuffle supersedes them. Failed moves preserve eligibility.
+        /// </summary>
         public bool Undo()
         {
             if (!CanUndo) return false;
             Snapshot snapshot = history.Pop();
             CompletedOrders = snapshot.CompletedOrders;
+            shuffleRandom.State = snapshot.ShuffleState;
             for (int i = 0; i < plates.Count; i++)
             {
                 plates[i].Kind = snapshot.PlateKinds[i];
@@ -461,6 +566,7 @@ namespace CandySort
             var snapshot = new Snapshot
             {
                 CompletedOrders = CompletedOrders,
+                ShuffleState = shuffleRandom.State,
                 Temp = (CandyKind?[])Temp.Clone(),
                 PendingOrders = new List<CandyKind>(pendingOrders)
             };
@@ -482,6 +588,7 @@ namespace CandySort
         private sealed class Snapshot
         {
             public int CompletedOrders;
+            public uint ShuffleState;
             public CandyKind?[] Temp;
             public List<CandyKind> PendingOrders;
             public readonly CandyKind?[] PlateKinds = new CandyKind?[4];
@@ -504,6 +611,7 @@ namespace CandySort
         private sealed class DeterministicRandom
         {
             private uint state;
+            public uint State { get { return state; } set { state = value; } }
             public DeterministicRandom(uint seed) { state = seed == 0 ? 1831565813u : seed; }
             public int Next(int maximum)
             {

@@ -22,8 +22,9 @@ namespace CandySort
         [SerializeField] private Camera sceneCamera;
         [SerializeField] private RectTransform root, plateLayer, tempLayer, board, bubbleLayer, modalLayer, effectLayer;
         [SerializeField] private TextMeshProUGUI levelLabel, difficultyLabel, progressLabel, hintLabel, queueLabel;
+        [SerializeField] private TextMeshProUGUI magnetCountLabel, undoCountLabel, shuffleCountLabel;
         [SerializeField] private Image progressFill;
-        [SerializeField] private Button helpButton, restartButton, undoButton;
+        [SerializeField] private Button helpButton, restartButton, undoButton, magnetButton, shuffleButton;
         [SerializeField] private PlateView[] plateViews;
         [SerializeField] private TempView[] tempViews;
         [SerializeField] private List<BubbleView> sceneBubbles = new List<BubbleView>();
@@ -31,6 +32,17 @@ namespace CandySort
 
         private TMP_FontAsset font;
         private bool busy;
+        private bool persistEconomy = true;
+        private CandySortBoosterInventory boosterInventory;
+        private CandySortWinReward winReward;
+        private CandySortBooster? pendingBooster;
+        private TextMeshProUGUI purchaseMessage;
+        private bool purchaseInFlight, returnToResult, resultOpen;
+        private System.Func<long> readCoins = () => IPlayerResource.Instance.GetCommonResource(ECommonResource.Coin);
+        private System.Action<int, System.Action, System.Action> changeCoins = (amount, success, error) =>
+            IPlayerResource.Instance.AddResource(new List<GameResource> { new CommonResource(ECommonResource.Coin, amount) },
+                amount < 0 ? EResourceFrom.SpendIngame : EResourceFrom.GameDrop, false, success, error);
+        private bool HasModal => modalLayer.Cast<Transform>().Any(child => child.gameObject.activeSelf);
         private CandyBubbleLayout layout;
         private readonly Dictionary<int, float> originalRadii = new Dictionary<int, float>();
         private readonly Dictionary<int, List<int>> candySlots = new Dictionary<int, List<int>>();
@@ -86,8 +98,15 @@ namespace CandySort
             System.Array.Resize(ref candySprites, CandySortModel.CandyKindCount);
         }
 
+#if UNITY_EDITOR
+        internal static System.Action<CandySortGameController> BeforeEditorStart;
+#endif
+
         private void Start()
         {
+#if UNITY_EDITOR
+            BeforeEditorStart?.Invoke(this);
+#endif
             Application.targetFrameRate = 60;
             InitializeViews();
             RestoreProgress();
@@ -128,6 +147,11 @@ namespace CandySort
             BindClick(helpButton, ShowHelp);
             BindClick(restartButton, () => { if (!busy) LoadLevel(model.Level); });
             BindClick(undoButton, Undo);
+            BindClick(magnetButton, Magnet);
+            BindClick(shuffleButton, Shuffle);
+            EnsureBoosterCount(magnetButton, ref magnetCountLabel);
+            EnsureBoosterCount(undoButton, ref undoCountLabel);
+            EnsureBoosterCount(shuffleButton, ref shuffleCountLabel);
             bubbles.Clear();
             foreach (var view in sceneBubbles)
                 if (view != null && view.Rect != null) bubbles[view.Id] = view;
@@ -235,16 +259,9 @@ namespace CandySort
             bubbleLayer.anchoredPosition = new Vector2(0, 12);
             queueLabel = Label(root, "", new Vector2(0, 443), new Vector2(650, 27), 17, muted);
             hintLabel = Label(root, "Chạm vào từng viên kẹo trong bong bóng", new Vector2(0, 1180), new Vector2(670, 30), 19, CandySortArt.Ink);
-            restartButton = Button(root, "CHƠI LẠI", new Vector2(-230, 1234), new Vector2(180, 56), cream, CandySortArt.Ink, 17, null);
-            undoButton = Button(root, "HOÀN TÁC", new Vector2(0, 1234), new Vector2(210, 56), CandySortArt.Hex("158CB0"), Color.white, 18, Undo);
-            var progress = Panel(root, "Order progress", new Vector2(230, 1234), new Vector2(180, 56), cream);
-            progressLabel = Label(progress, "", new Vector2(0, -5), new Vector2(170, 35), 17, CandySortArt.Ink, FontStyles.Bold, true);
-            var bar = Panel(progress, "Track", new Vector2(0, 17), new Vector2(135, 5), CandySortArt.Hex("103C58"));
-            Center(bar);
-            progressFill = Image(bar, "Filled", Vector2.zero, new Vector2(135, 5), CandySortArt.Hex("71E0E7"), CandySortArt.Rounded);
-            progressFill.rectTransform.anchorMin = progressFill.rectTransform.anchorMax = new Vector2(0, .5f);
-            progressFill.rectTransform.pivot = new Vector2(0, .5f);
-            progressFill.rectTransform.anchoredPosition = Vector2.zero;
+            magnetButton = Button(root, "∩", new Vector2(-230, 1234), new Vector2(190, 56), cream, CandySortArt.Ink, 36, Magnet);
+            undoButton = Button(root, "↶", new Vector2(0, 1234), new Vector2(190, 56), CandySortArt.Hex("158CB0"), Color.white, 36, Undo);
+            shuffleButton = Button(root, "⇄", new Vector2(230, 1234), new Vector2(190, 56), cream, CandySortArt.Ink, 36, Shuffle);
             effectLayer = NewRect(root, "Candy flights", Vector2.zero, new Vector2(720, 1280));
             Center(effectLayer);
             modalLayer = NewRect(root, "Dialog layer", Vector2.zero, new Vector2(720, 1280));
@@ -268,10 +285,26 @@ namespace CandySort
 
         private void LoadLevel(int level)
         {
+            if (purchaseInFlight) return;
             if (Application.isPlaying) StopAllCoroutines();
             busy = false;
+            pendingBooster = null;
+            resultOpen = returnToResult = false;
             Clear(modalLayer);
             model = new CandySortModel(Mathf.Clamp(level, 1, CandySortCampaign.LevelCount));
+            winReward = new CandySortWinReward();
+            if (boosterInventory == null)
+            {
+                if (Application.isPlaying && persistEconomy)
+                    boosterInventory = new CandySortBoosterInventory(PlayerPrefs.GetInt, PlayerPrefs.SetInt, PlayerPrefs.Save);
+                else
+                {
+                    var stock = new Dictionary<string, int>();
+                    boosterInventory = new CandySortBoosterInventory((key, fallback) => stock.TryGetValue(key, out int value) ? value : fallback,
+                        (key, value) => stock[key] = value, () => { });
+                }
+            }
+            boosterInventory.GrantUnlocked(model.Level);
             Clear(effectLayer);
             originalBubbleCounts.Clear();
             originalRadii.Clear();
@@ -299,9 +332,9 @@ namespace CandySort
                 difficultyLabel.text = model.Definition.DifficultyLabel;
                 difficultyLabel.color = model.Definition.IsHard ? CandySortArt.Hex("FFCB79") : muted;
             }
-            progressLabel.text = model.CompletedOrders + " / " + model.TargetOrders + " ĐĨA";
-            progressFill.rectTransform.sizeDelta = new Vector2(135f * model.CompletedOrders / model.TargetOrders, 5);
-            undoButton.interactable = model.CanUndo && !busy;
+            if (progressLabel != null) progressLabel.text = model.CompletedOrders + " / " + model.TargetOrders + " ĐĨA";
+            if (progressFill != null) progressFill.rectTransform.sizeDelta = new Vector2(135f * model.CompletedOrders / model.TargetOrders, 5);
+            RefreshBoosterButtons();
             var remaining = new HashSet<int>(model.Bubbles.Select(b => b.Id));
             foreach (int id in bubbles.Keys.Where(id => !remaining.Contains(id)).ToList())
             {
@@ -547,7 +580,7 @@ namespace CandySort
 
         private void Take(int id, int index, RectTransform source)
         {
-            if (busy || model.IsWon) return;
+            if (busy || purchaseInFlight || HasModal || model.IsWon) return;
             var bubble = model.Bubbles.FirstOrDefault(b => b.Id == id);
             if (bubble == null || index >= bubble.Candies.Count) return;
             CandyKind kind = bubble.Candies[index];
@@ -563,10 +596,12 @@ namespace CandySort
                 StartCoroutine(Nudge(source));
                 return;
             }
-            boardHistory.Push(previousBoard);
+            if (plate < 0) boardHistory.Push(previousBoard);
+            else boardHistory.Clear();
             candySlots[id].RemoveAt(index);
             if (!model.Bubbles.Any(b => b.Id == id)) layout.Remove(id);
             busy = true;
+            RefreshBoosterButtons();
             source.gameObject.SetActive(false);
             RectTransform plateTarget = plate >= 0 ? platePositions[plate] : null;
             Vector2 offset = PlateCandyOffset(plateCount);
@@ -613,15 +648,244 @@ namespace CandySort
 
         private void UseTemp(int index)
         {
-            if (busy || !model.Temp[index].HasValue) return;
-            var previousBoard = CaptureBoard();
+            if (busy || purchaseInFlight || HasModal || !model.Temp[index].HasValue) return;
             if (model.TryUseTemp(index))
             {
-                boardHistory.Push(previousBoard);
+                boardHistory.Clear();
                 Render();
                 if (model.IsWon) CompleteLevel();
             }
             else if (hintLabel != null) hintLabel.text = "Viên này đang chờ đĩa đúng vị. Hãy chọn kẹo khác.";
+        }
+
+        private void EnsureBoosterCount(Button button, ref TextMeshProUGUI caption)
+        {
+            if (button == null || caption != null) return;
+            caption = Label(button.transform, "0", Vector2.zero, new Vector2(72, 28), 17, Color.white, FontStyles.Bold, true);
+            caption.name = "Booster count";
+            caption.rectTransform.anchorMin = caption.rectTransform.anchorMax = Vector2.one;
+            caption.rectTransform.pivot = Vector2.one;
+            caption.rectTransform.anchoredPosition = new Vector2(-12, -4);
+        }
+
+        private void RefreshBoosterButtons()
+        {
+            RefreshBooster(CandySortBooster.Magnet, magnetButton, magnetCountLabel);
+            RefreshBooster(CandySortBooster.Undo, undoButton, undoCountLabel);
+            RefreshBooster(CandySortBooster.Shuffle, shuffleButton, shuffleCountLabel);
+        }
+
+        private void RefreshBooster(CandySortBooster booster, Button button, TextMeshProUGUI caption)
+        {
+            bool unlocked = boosterInventory != null && boosterInventory.IsUnlocked(booster);
+            if (caption != null) caption.text = unlocked ? boosterInventory.Count(booster).ToString() : "LV " + CandySortBoosterInventory.UnlockLevel(booster);
+            if (button != null) button.interactable = CanUseBooster(booster) && !purchaseInFlight && !HasModal;
+        }
+
+        private bool CanUseBooster(CandySortBooster booster)
+        {
+            if (busy || model == null || model.IsWon || boosterInventory == null || !boosterInventory.IsUnlocked(booster)) return false;
+            switch (booster)
+            {
+                case CandySortBooster.Magnet: return model.MagnetPlateIndex >= 0;
+                case CandySortBooster.Undo: return model.CanUndo && boardHistory.Count > 0;
+                case CandySortBooster.Shuffle: return model.CanShuffle;
+                default: return false;
+            }
+        }
+
+        private void Magnet() => RequestBooster(CandySortBooster.Magnet);
+        private void Undo() => RequestBooster(CandySortBooster.Undo);
+        private void Shuffle() => RequestBooster(CandySortBooster.Shuffle);
+
+        private void RequestBooster(CandySortBooster booster)
+        {
+            if (purchaseInFlight || pendingBooster.HasValue || !CanUseBooster(booster)) return;
+            if (HasModal && !(resultOpen && booster == CandySortBooster.Undo)) return;
+            if (boosterInventory.Count(booster) > 0)
+            {
+                ExecuteBooster(booster);
+                return;
+            }
+            pendingBooster = booster;
+            returnToResult = resultOpen;
+            Clear(modalLayer);
+            var shade = Panel(modalLayer, "Purchase shade", Vector2.zero, new Vector2(720, 1280), new Color(.25f, .13f, .27f, .55f), false);
+            Center(shade);
+            shade.GetComponent<Image>().raycastTarget = true;
+            var card = Panel(shade, "Booster purchase", Vector2.zero, new Vector2(580, 360), cream);
+            Center(card);
+            string boosterName = booster == CandySortBooster.Magnet ? "Nam châm" : booster == CandySortBooster.Undo ? "Hoàn tác" : "Xáo trộn";
+            Label(card, "MUA THÊM LƯỢT", new Vector2(0, -115), new Vector2(530, 50), 29, Color.white, FontStyles.Bold, true);
+            purchaseMessage = Label(card, boosterName + ": 1 lượt = " + CandySortBoosterInventory.PurchasePrice + " vàng\nVàng hiện có: " + readCoins(),
+                new Vector2(0, -30), new Vector2(520, 90), 23, muted, FontStyles.Normal, true);
+            var confirm = Button(card, "MUA & DÙNG · " + CandySortBoosterInventory.PurchasePrice + " VÀNG", new Vector2(0, 60), new Vector2(450, 60), CandySortArt.Hex("168BB0"), Color.white, 21, ConfirmBoosterPurchase);
+            Center(confirm.GetComponent<RectTransform>());
+            var cancel = Button(card, "HỦY", new Vector2(0, 130), new Vector2(400, 50), cream, muted, 21, CancelBoosterPurchase);
+            Center(cancel.GetComponent<RectTransform>());
+            RefreshBoosterButtons();
+        }
+
+        private void CancelBoosterPurchase()
+        {
+            if (purchaseInFlight) return;
+            pendingBooster = null;
+            Clear(modalLayer);
+            if (returnToResult) ShowResult(false);
+            returnToResult = false;
+            RefreshBoosterButtons();
+        }
+
+        private void ConfirmBoosterPurchase()
+        {
+            if (purchaseInFlight || !pendingBooster.HasValue) return;
+            CandySortBooster booster = pendingBooster.Value;
+            if (!CanUseBooster(booster)) { CancelBoosterPurchase(); return; }
+            if (readCoins() < CandySortBoosterInventory.PurchasePrice)
+            {
+                if (purchaseMessage != null) purchaseMessage.text = "Không đủ vàng. Cần 10 vàng để mua 1 lượt.\nVàng hiện có: " + readCoins();
+                return;
+            }
+            purchaseInFlight = true;
+            var attempt = model;
+            bool resolved = false;
+            changeCoins(-CandySortBoosterInventory.PurchasePrice, () =>
+            {
+                if (resolved) return;
+                resolved = true;
+                purchaseInFlight = false;
+                pendingBooster = null;
+                bool added = attempt == model && CanUseBooster(booster) && boosterInventory.AddPurchasedUse(booster);
+                Clear(modalLayer);
+                bool used = added && ExecuteBooster(booster);
+                if (!used)
+                {
+                    if (added) boosterInventory.TryConsume(booster);
+                    changeCoins(CandySortBoosterInventory.PurchasePrice, () => { }, () => Debug.LogWarning("Candy Sort: không thể hoàn vàng mua lượt."));
+                    if (returnToResult) ShowResult(false);
+                }
+                returnToResult = false;
+                RefreshBoosterButtons();
+            }, () =>
+            {
+                if (resolved) return;
+                resolved = true;
+                purchaseInFlight = false;
+                if (purchaseMessage != null) purchaseMessage.text = "Không thể mua lượt. Vui lòng thử lại.";
+            });
+        }
+
+        private bool ExecuteBooster(CandySortBooster booster)
+        {
+            if (!CanUseBooster(booster) || boosterInventory.Count(booster) <= 0) return false;
+            bool used;
+            switch (booster)
+            {
+                case CandySortBooster.Magnet: used = UseMagnet(); break;
+                case CandySortBooster.Undo: used = UseUndo(); break;
+                case CandySortBooster.Shuffle: used = UseShuffle(); break;
+                default: return false;
+            }
+            if (used) boosterInventory.TryConsume(booster);
+            RefreshBoosterButtons();
+            return used;
+        }
+
+        private bool UseMagnet()
+        {
+            int plate = model.MagnetPlateIndex;
+            if (plate < 0) return false;
+            CandyKind kind = model.Plates[plate].Kind.Value;
+            int count = model.Plates[plate].Count;
+            var selected = new List<(int Id, int Index, RectTransform Source)>();
+            foreach (var bubble in model.Bubbles)
+            {
+                for (int i = 0; i < bubble.Candies.Count && selected.Count < 3 - count; i++)
+                    if (bubble.Candies[i] == kind)
+                        selected.Add((bubble.Id, i, bubbles[bubble.Id].Buttons[candySlots[bubble.Id][i]].GetComponent<RectTransform>()));
+                if (selected.Count == 3 - count) break;
+            }
+            if (!model.TryMagnet()) return false;
+            boardHistory.Clear();
+            var origins = selected.Select(c => c.Source.position).ToArray();
+            for (int i = selected.Count - 1; i >= 0; i--)
+            {
+                candySlots[selected[i].Id].RemoveAt(selected[i].Index);
+                selected[i].Source.gameObject.SetActive(false);
+            }
+            foreach (int id in selected.Select(c => c.Id).Distinct())
+                if (!model.Bubbles.Any(b => b.Id == id)) layout.Remove(id);
+            busy = true;
+            RefreshBoosterButtons();
+            StartCoroutine(MagnetTransfer(kind, origins, plate, count));
+            return true;
+        }
+
+        private IEnumerator MagnetTransfer(CandyKind kind, Vector3[] origins, int plate, int count)
+        {
+            var flights = new List<RectTransform>();
+            var destinations = new List<Vector3>();
+            var target = platePositions[plate];
+            for (int i = 0; i < origins.Length; i++)
+            {
+                var flight = Image(effectLayer, "Magnet candy", Vector2.zero, new Vector2(58, 58), Color.white, CandySortArt.Candy(kind));
+                flight.preserveAspect = true;
+                Center(flight.rectTransform);
+                flights.Add(flight.rectTransform);
+                Vector2 offset = PlateCandyOffset(count + i);
+                destinations.Add(target.TransformPoint(new Vector3(offset.x, -offset.y, 0)));
+            }
+            for (float t = 0; t < 1; t += Time.unscaledDeltaTime / .36f)
+            {
+                float eased = t * t * (3 - 2 * t);
+                for (int i = 0; i < flights.Count; i++)
+                    flights[i].position = Vector3.Lerp(origins[i], destinations[i], eased) + Vector3.up * Mathf.Sin(t * Mathf.PI) * 65 * root.lossyScale.y;
+                yield return null;
+            }
+            for (int i = 0; i < flights.Count; i++)
+            {
+                Destroy(flights[i].gameObject);
+                AddPlateCandy(target, kind, count + i);
+            }
+            plateViews[plate].Count.text = "3/3";
+            yield return new WaitForSecondsRealtime(.22f);
+            busy = false;
+            Render();
+            if (hintLabel != null) hintLabel.text = "Nam châm đã hút đủ kẹo cho một đĩa!";
+            StartCoroutine(Celebrate(target.position));
+            if (model.IsWon) CompleteLevel();
+            else if (model.Temp.All(t => t.HasValue)) ShowResult(false);
+        }
+
+        private bool UseShuffle()
+        {
+            if (!model.TryShuffle()) return false;
+            boardHistory.Clear();
+            busy = true;
+            RefreshBoosterButtons();
+            StartCoroutine(ShuffleTransition());
+            return true;
+        }
+
+        private IEnumerator ShuffleTransition()
+        {
+            var candies = bubbles.Values.SelectMany(b => b.Buttons).Where(b => b.gameObject.activeSelf).Select(b => b.transform).ToArray();
+            var scales = candies.Select(c => c.localScale).ToArray();
+            for (float t = 0; t < 1; t += Time.unscaledDeltaTime / .16f)
+            {
+                for (int i = 0; i < candies.Length; i++) candies[i].localScale = scales[i] * Mathf.Lerp(1, .1f, t);
+                yield return null;
+            }
+            Render();
+            for (float t = 0; t < 1; t += Time.unscaledDeltaTime / .16f)
+            {
+                for (int i = 0; i < candies.Length; i++) candies[i].localScale = scales[i] * Mathf.Lerp(.1f, 1, t);
+                yield return null;
+            }
+            for (int i = 0; i < candies.Length; i++) candies[i].localScale = scales[i];
+            busy = false;
+            RefreshBoosterButtons();
+            if (hintLabel != null) hintLabel.text = "Đã xáo trộn kẹo trong các bong bóng.";
         }
 
         private BoardSnapshot CaptureBoard()
@@ -633,20 +897,25 @@ namespace CandySort
             };
         }
 
-        private void Undo()
+        private bool UseUndo()
         {
-            if (busy || !model.Undo()) return;
+            if (boardHistory.Count == 0 || !model.Undo()) return false;
             var snapshot = boardHistory.Pop();
             layout.Restore(snapshot.Layout, originalRadii);
             candySlots.Clear();
             foreach (var entry in snapshot.CandySlots) candySlots.Add(entry.Key, entry.Value);
             Clear(modalLayer);
+            resultOpen = false;
             Render();
-            if (hintLabel != null) hintLabel.text = "Đã hoàn tác một lượt.";
+            if (hintLabel != null) hintLabel.text = "Đã trả kẹo từ khay tạm về bong bóng.";
+            return true;
         }
 
         private void CompleteLevel()
         {
+            if (!model.IsWon) return;
+            if (winReward.TryClaim(true))
+                changeCoins(CandySortBoosterInventory.WinReward, () => { }, () => Debug.LogWarning("Candy Sort: không thể nhận vàng thưởng."));
             if (rememberProgress)
             {
                 PlayerPrefs.SetInt(SaveKey, Mathf.Min(model.Level + 1, CandySortCampaign.LevelCount));
@@ -670,6 +939,7 @@ namespace CandySort
         private void ShowResult(bool won)
         {
             bool campaignWon = won && model.Level == CandySortCampaign.LevelCount;
+            resultOpen = true;
             Clear(modalLayer);
             var shade = Panel(modalLayer, "Dialog shade", Vector2.zero, new Vector2(720, 1280), new Color(.25f, .13f, .27f, .38f), false);
             Center(shade);
@@ -677,9 +947,10 @@ namespace CandySort
             var card = Panel(shade, "Result card", Vector2.zero, new Vector2(580, 430), cream);
             Center(card);
             Label(card, campaignWon ? "HOÀN THÀNH 30 MÀN!" : won ? "THẬT NGỌT NGÀO!" : "KHAY TẠM ĐÃ ĐẦY", new Vector2(0, -129), new Vector2(550, 60), 32, CandySortArt.Ink, FontStyles.Bold, true);
-            Label(card, campaignWon ? "Bạn đã hoàn thành hành trình Candy Sort.\nCảm ơn bạn đã chơi!" : won ? "Bạn đã phân loại hết kẹo của màn này." : "Cả 5 ô tạm đã đầy.\nHoàn tác để thử một cách xếp khác nhé.", new Vector2(0, -30), new Vector2(500, 100), 23, muted, FontStyles.Normal, true);
+            Label(card, campaignWon ? "Bạn đã hoàn thành hành trình Candy Sort.\nCảm ơn bạn đã chơi!" : won ? "Bạn đã phân loại hết kẹo của màn này.\n+40 vàng" : "Cả 5 ô tạm đã đầy.\nHoàn tác để thử một cách xếp khác nhé.", new Vector2(0, -30), new Vector2(500, 100), 23, muted, FontStyles.Normal, true);
             var button = Button(card, campaignWon ? "CHƠI LẠI MÀN 30" : won ? "MÀN TIẾP THEO  →" : "HOÀN TÁC", new Vector2(0, 77), new Vector2(430, 66), CandySortArt.Hex("168BB0"), Color.white, 22, () => { if (campaignWon) LoadLevel(CandySortCampaign.LevelCount); else if (won) LoadLevel(model.Level + 1); else Undo(); });
             Center(button.GetComponent<RectTransform>());
+            if (!won) button.interactable = CanUseBooster(CandySortBooster.Undo);
             if (campaignWon)
             {
                 button = Button(card, "Chơi lại từ màn 1", new Vector2(0, 155), new Vector2(400, 50), cream, muted, 19, RestartCampaign);
@@ -690,11 +961,13 @@ namespace CandySort
                 button = Button(card, "Chơi lại màn này", new Vector2(0, 155), new Vector2(400, 50), cream, muted, 19, () => LoadLevel(model.Level));
                 Center(button.GetComponent<RectTransform>());
             }
+            RefreshBoosterButtons();
         }
 
         private void ShowHelp()
         {
-            if (busy) return;
+            if (busy || purchaseInFlight || HasModal) return;
+            resultOpen = false;
             Clear(modalLayer);
             var shade = Panel(modalLayer, "Help shade", Vector2.zero, new Vector2(720, 1280), new Color(.25f, .13f, .27f, .38f), false);
             Center(shade);
@@ -703,8 +976,9 @@ namespace CandySort
             Center(card);
             Label(card, "MỘT CHÚT NGỌT NGÀO", new Vector2(0, -248), new Vector2(560, 70), 29, CandySortArt.Ink, FontStyles.Bold, true);
             Label(card, "1. Chạm từng viên kẹo trong bong bóng.\n\n2. Kẹo đúng vị sẽ bay lên đĩa. Mỗi đĩa nhận 3 viên rồi đổi sang vị mới.\n\n3. Kẹo chưa có đĩa sẽ vào 5 ô tạm và tự chuyển khi đĩa phù hợp xuất hiện. Đầy cả 5 ô là thua.\n\n4. Bong bóng hết kẹo sẽ vỡ; các bong bóng phía trên rơi xuống.\n\nĐĩa mới mở ở màn 3 và màn 5.", new Vector2(0, -5), new Vector2(510, 450), 22, CandySortArt.Ink, FontStyles.Normal, true);
-            var close = Button(card, "BẮT ĐẦU THÔI", new Vector2(0, 263), new Vector2(450, 65), CandySortArt.Hex("168BB0"), Color.white, 21, () => Clear(modalLayer));
+            var close = Button(card, "BẮT ĐẦU THÔI", new Vector2(0, 263), new Vector2(450, 65), CandySortArt.Hex("168BB0"), Color.white, 21, () => { Clear(modalLayer); RefreshBoosterButtons(); });
             Center(close.GetComponent<RectTransform>());
+            RefreshBoosterButtons();
         }
 
         private IEnumerator Pop(RectTransform rect)

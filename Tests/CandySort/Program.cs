@@ -13,9 +13,11 @@ internal static class Program
         var failures = new List<string>();
         Run("campaign definitions and boundaries", ModelTests.Campaign, failures);
         Run("model invariants, seeds, invalid moves, undo and complete matches", ModelTests.Matches, failures);
+        Run("boosters, deterministic shuffle, cascades, no-ops and mixed undo/replay", ModelTests.Boosters, failures);
+        Run("persistent booster inventory and per-attempt win rewards", EconomyTests.Run, failures);
         Run("layout validation, determinism, conservation and restoration", LayoutTests.Run, failures);
         Run("all 30 default boards through actual viewport geometry", () => GeometryTests.Run(args), failures);
-        Console.WriteLine($"\n{4 - failures.Count}/4 suites passed.");
+        Console.WriteLine($"\n{6 - failures.Count}/6 suites passed.");
         foreach (string failure in failures) Console.Error.WriteLine(failure);
         return failures.Count == 0 ? 0 : 1;
     }
@@ -49,7 +51,7 @@ internal static class Check
     public static string State(CandySortModel model)
     {
         var result = new StringBuilder();
-        result.Append($"{model.Level}/{model.TotalCandies}/{model.TargetOrders}/{model.ActivePlates}/{model.CompletedOrders}/{model.SortedCandies}/{model.IsWon}/{model.IsBlocked}/{model.CanUndo}|");
+        result.Append($"{model.Level}/{model.TotalCandies}/{model.TargetOrders}/{model.ActivePlates}/{model.CompletedOrders}/{model.SortedCandies}/{model.IsWon}/{model.IsBlocked}/{model.CanUndo}/{model.MagnetPlateIndex}/{model.CanShuffle}|");
         foreach (var plate in model.Plates) result.Append($"{plate.Active}:{plate.Kind}:{plate.Count},");
         result.Append('|');
         foreach (var kind in model.PendingOrders) result.Append($"{kind},");

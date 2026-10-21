@@ -254,14 +254,18 @@ public static class CandySortSceneBuilder
             candies.Contains(button.GetComponent<Image>().sprite)), "Every board candy uses an imported sheet slice with preserved aspect", report);
 
         var serialized = new SerializedObject(controller);
+        bool boosters = serialized.FindProperty("magnetButton").objectReferenceValue != null ||
+            serialized.FindProperty("shuffleButton").objectReferenceValue != null;
         string[] retainedFields = { "sceneCamera", "root", "plateLayer", "tempLayer", "board", "bubbleLayer", "modalLayer", "effectLayer",
-            "levelLabel", "progressLabel", "queueLabel", "progressFill", "restartButton", "undoButton" };
-        Require(retainedFields.All(name => serialized.FindProperty(name) != null && serialized.FindProperty(name).objectReferenceValue != null),
+            "levelLabel", "queueLabel", "undoButton" };
+        string[] actionFields = boosters ? new[] { "magnetButton", "shuffleButton", "magnetCountLabel", "undoCountLabel", "shuffleCountLabel" } :
+            new[] { "progressLabel", "progressFill", "restartButton" };
+        Require(retainedFields.Concat(actionFields).All(name => serialized.FindProperty(name) != null && serialized.FindProperty(name).objectReferenceValue != null),
             "Retained camera, rect, text, image and button fields are serialized and assigned", report);
-        Require(new[] { "levelLabel", "progressLabel", "queueLabel" }.All(name =>
+        Require(new[] { "levelLabel", "queueLabel" }.All(name =>
             serialized.FindProperty(name).objectReferenceValue is TextMeshProUGUI),
             "Required HUD labels reference TextMeshProUGUI components", report);
-        foreach (string name in new[] { "difficultyLabel", "hintLabel" })
+        foreach (string name in new[] { "difficultyLabel", "hintLabel", "progressLabel" })
         {
             var caption = serialized.FindProperty(name).objectReferenceValue;
             Require(caption == null || caption is TextMeshProUGUI,
@@ -289,7 +293,8 @@ public static class CandySortSceneBuilder
                 bool optionalPlateDecoration = path.StartsWith("plateViews.Array.data[", StringComparison.Ordinal) &&
                     new[] { ".Ring", ".LockIcon", ".Locked", ".Unlock", ".Served" }.Any(path.EndsWith);
                 bool optionalTrayLabel = path.StartsWith("tempViews.Array.data[", StringComparison.Ordinal) && path.EndsWith(".Empty", StringComparison.Ordinal);
-                bool optionalControllerView = path == "difficultyLabel" || path == "hintLabel" || path == "helpButton";
+                bool optionalControllerView = path == "difficultyLabel" || path == "hintLabel" || path == "helpButton" ||
+                    (boosters ? new[] { "progressLabel", "progressFill", "restartButton" } : new[] { "magnetButton", "shuffleButton", "magnetCountLabel", "undoCountLabel", "shuffleCountLabel" }).Contains(path);
                 if (optionalPlateDecoration || optionalTrayLabel || optionalControllerView) continue;
                 throw new InvalidOperationException("Missing retained serialized reference: " + path);
             }
