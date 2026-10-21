@@ -53,8 +53,12 @@ public class SceneHelper : Singleton<SceneHelper>
         yield return StartCoroutine(LoadingPanel.Instance.IEStartTransiton());
         yield return StartCoroutine(IEChangeSceneLoading());
         yield return StartCoroutine(IEChangeSceneGameplay());
-        yield return StartCoroutine(IELoadMap());
-        yield return StartCoroutine(UIManager.Instance.IEGamgeInit());
+        var candySort = FindFirstObjectByType<CandySort.CandySortGameController>();
+        if (candySort != null)
+            yield return new WaitUntil(() => candySort.IsInitialized);
+        else
+            yield return StartCoroutine(IELoadMap());
+        yield return StartCoroutine(UIManager.Instance.IEGamgeInit(candySort == null));
         yield return StartCoroutine(LoadingPanel.Instance.IEEndTransition());
         GameManager.Instance.SetState(EGameState.Gameplay);
     }

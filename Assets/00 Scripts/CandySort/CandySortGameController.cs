@@ -27,6 +27,8 @@ namespace CandySort
         [SerializeField] private PlateView[] plateViews;
         [SerializeField] private TempView[] tempViews;
         [SerializeField] private List<BubbleView> sceneBubbles = new List<BubbleView>();
+        public bool IsInitialized { get; private set; }
+
         private TMP_FontAsset font;
         private bool busy;
         private CandyBubbleLayout layout;
@@ -89,6 +91,7 @@ namespace CandySort
             Application.targetFrameRate = 60;
             InitializeViews();
             RestoreProgress();
+            IsInitialized = true;
         }
 
         public void BuildScenePreview(Sprite[] sprites)

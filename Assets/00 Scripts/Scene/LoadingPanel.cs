@@ -23,6 +23,7 @@ public class LoadingPanel : Singleton<LoadingPanel>
     public LoginPanel loginPanel;
     private void Start()
     {
+        StartLoading();
         Observable.Interval(System.TimeSpan.FromSeconds(1)).Subscribe(_ => VisualTextLoading());
     }
     public void VisualTextLoading()

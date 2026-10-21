@@ -73,14 +73,17 @@ public class UIManager : Singleton<UIManager>
         uIHome.InitHome();
         Initialized = true;
     }
-    public IEnumerator IEGamgeInit()
+    public IEnumerator IEGamgeInit(bool waitForLegacyUI = true)
     {
         lstOpenningUI = new List<UIBase>();
         dicUsedUI = new Dictionary<string, UIBase>();
         if (uIDialog != null)
             uIDialog.gameObject.SetActive(false);
-        yield return StartCoroutine(IEWaitSafeZone());
-        yield return StartCoroutine(IEWaitUIGameplay());
+        if (waitForLegacyUI)
+        {
+            yield return StartCoroutine(IEWaitSafeZone());
+            yield return StartCoroutine(IEWaitUIGameplay());
+        }
         Initialized = true;
     }
     public void HomeInit()

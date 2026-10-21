@@ -12,7 +12,12 @@ public class CommonFill : MonoBehaviour
     public void SetFill(float value)
     {
         fillValue = Mathf.Clamp01(value);
-        fill.offsetMax = new Vector2(-parent.sizeDelta.x * (1 - fillValue), fill.sizeDelta.y);
+        if (fill.TryGetComponent<Image>(out var image) && image.type == Image.Type.Filled)
+        {
+            image.fillAmount = fillValue;
+            return;
+        }
+        fill.offsetMax = new Vector2(-parent.rect.width * (1 - fillValue), fill.offsetMax.y);
     }
     public void DoFill(float value, System.Action actionComplete = null)
     {

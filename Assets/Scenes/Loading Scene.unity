@@ -13,7 +13,7 @@ OcclusionCullingSettings:
 --- !u!104 &2
 RenderSettings:
   m_ObjectHideFlags: 0
-  serializedVersion: 9
+  serializedVersion: 10
   m_Fog: 0
   m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   m_FogMode: 3
@@ -42,8 +42,8 @@ RenderSettings:
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
-  serializedVersion: 12
-  m_GIWorkflowMode: 1
+  serializedVersion: 13
+  m_BakeOnSceneLoad: 0
   m_GISettings:
     serializedVersion: 2
     m_BounceScale: 1
@@ -66,9 +66,6 @@ LightmapSettings:
     m_LightmapParameters: {fileID: 0}
     m_LightmapsBakeMode: 1
     m_TextureCompression: 1
-    m_FinalGather: 0
-    m_FinalGatherFiltering: 1
-    m_FinalGatherRayCount: 256
     m_ReflectionCompression: 2
     m_MixedBakeMode: 2
     m_BakeBackend: 1
@@ -347,6 +344,30 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1301388572122980257, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_Type
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1301388572122980257, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: -6042899707983910571, guid: 385e5f5cd59d282678aaa1540870c3aa, type: 3}
+    - target: {fileID: 1301388572122980257, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_PreserveAspect
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2156731737649682132, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 164.8255
+      objectReference: {fileID: 0}
+    - target: {fileID: 2156731737649682132, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 372.4297
+      objectReference: {fileID: 0}
+    - target: {fileID: 3062582969970066486, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 3663416066877789246, guid: 896821660dff05b4eaacde12c821571f, type: 3}
       propertyPath: m_Name
       value: Canvas Loading
@@ -355,6 +376,10 @@ PrefabInstance:
       propertyPath: m_BlockingMask.m_Bits
       value: 503
       objectReference: {fileID: 0}
+    - target: {fileID: 3981333710860502430, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: da0eb10761b7efd5bba44887d65e4a59, type: 3}
     - target: {fileID: 4263697172076922257, guid: 896821660dff05b4eaacde12c821571f, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0
@@ -370,6 +395,22 @@ PrefabInstance:
     - target: {fileID: 4263697172076922257, guid: 896821660dff05b4eaacde12c821571f, type: 3}
       propertyPath: m_SizeDelta.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5615102346657111646, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: -93.0143
+      objectReference: {fileID: 0}
+    - target: {fileID: 5615102346657111646, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: -66.4563
+      objectReference: {fileID: 0}
+    - target: {fileID: 5615102346657111646, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 54.036316
+      objectReference: {fileID: 0}
+    - target: {fileID: 5615102346657111646, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -10.4372
       objectReference: {fileID: 0}
     - target: {fileID: 5710810347777201044, guid: 896821660dff05b4eaacde12c821571f, type: 3}
       propertyPath: m_Pivot.x
@@ -450,6 +491,18 @@ PrefabInstance:
     - target: {fileID: 5710810347777201044, guid: 896821660dff05b4eaacde12c821571f, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8893941024494962272, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_Type
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 8893941024494962272, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 4366363395544893404, guid: 452fa0a90b7587cd38b5db9950e3176c, type: 3}
+    - target: {fileID: 8893941024494962272, guid: 896821660dff05b4eaacde12c821571f, type: 3}
+      propertyPath: m_FillAmount
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

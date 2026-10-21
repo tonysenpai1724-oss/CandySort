@@ -6,20 +6,20 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/CandySortGame.unity
-    guid: d8bb144f478c4da3917c066d471953b6
-  - enabled: 0
     path: Assets/Scenes/Splash.unity
     guid: 32ce77d026b6f334b89d610c25ade5a3
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Loading Scene.unity
     guid: 51ffc6388b426b54a9f6c14ec88e5acd
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Main UI.unity
     guid: de46e89f9d2e46f48b5774c370427251
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Gameplay.unity
     guid: dad838d164110134183df1bab4224bea
+  - enabled: 0
+    path: Assets/Scenes/CandySortGame.unity
+    guid: d8bb144f478c4da3917c066d471953b6
   - enabled: 0
     path: Assets/Scenes/Test Scene.unity
     guid: 2cda990e2423bbf4892e6590ba056729
